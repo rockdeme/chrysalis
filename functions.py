@@ -1,14 +1,15 @@
+import colorsys
 import numpy as np
 import pandas as pd
 import scanpy as sc
 from tqdm import tqdm
 import geopandas as gpd
-from shapely.geometry import Point
+import archetypes as arch
 from pysal.lib import weights
 from pysal.explore import esda
 import matplotlib.pyplot as plt
+from shapely.geometry import Point
 import matplotlib.colors as mcolors
-import colorsys
 
 
 def get_moransI(w_orig, y):
@@ -46,13 +47,32 @@ def black_to_color(color):
     return cmap
 
 
-def hsv_to_hex(h, s, v):
+def hls_to_hex(h, l, s):
     # convert the HSV values to RGB values
-    r, g, b = colorsys.hsv_to_rgb(h, s, v)
+    r, g, b = colorsys.hls_to_rgb(h, l, s)
     # convert the RGB values to a hex color code
-    hex_code = "#{:02X}{:02X}{:02X}".format(int(r * 255), int(g * 255), int(b * 255))
+    hex_code = "#{:02X}{:02X}{:02X}".format(int(r * 255), int(g * 255), 76)
     return hex_code
 
+
+def generate_random_colors(num_colors, hue_range=(0, 1), saturation=0.5, lightness=0.5, min_distance=0.2):
+    colors = []
+    hue_list = []
+
+    while len(colors) < num_colors:
+        # Generate a random hue value within the specified range
+        hue = np.random.uniform(hue_range[0], hue_range[1])
+
+        # Check if the hue is far enough away from the previous hue
+        if len(hue_list) == 0 or all(abs(hue - h) > min_distance for h in hue_list):
+            hue_list.append(hue)
+            saturation = saturation
+            lightness = lightness
+            rgb = colorsys.hls_to_rgb(hue, lightness, saturation)
+            hex_code = '#{:02x}{:02x}{:02x}'.format(int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+            colors.append(hex_code)
+
+    return colors
 
 def get_rgb_from_colormap(cmap, vmin, vmax, value):
     # normalize the value within the range [0, 1]
@@ -181,3 +201,106 @@ def chrysalis_calculate(adata):
 
     for i in range(20):
         adata.obs[f'pca_{i}'] = adata.obsm['X_pca'][:, i]
+
+    # archetype analysis
+    model = arch.AA(n_archetypes=8, n_init=3, max_iter=200, tol=0.001, random_state=42)
+    model.fit(adata.obsm['X_pca'][:, :7])
+
+    for i in range(model.alphas_.shape[1]):
+        adata.obs[f'aa_{i}'] = model.alphas_[:, i]
+
+
+def plot_loadings(adata):
+    hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+
+    np.random.seed(len(adata))
+    np.random.shuffle(hexcodes)
+
+    loadings = pd.DataFrame(adata.varm['PCs'][:, :20], index=adata.var_names)
+    sl = loadings[[0]].sort_values(ascending=False, by=0)[:10]
+
+    fig, ax = plt.subplots(2, 4, figsize=(3 * 4, 4 * 2))
+    ax = ax.flatten()
+    for i in range(8):
+        sl = loadings[[i]].sort_values(ascending=False, by=i)[:10]
+        ax[i].axis('on')
+        ax[i].grid(axis='x')
+        ax[i].set_axisbelow(True)
+        ax[i].barh(list(sl.index)[::-1], list(sl[i].values)[::-1], color=hexcodes[i])
+        ax[i].set_xlabel('Loading')
+        ax[i].set_title(f'PC {i}')
+    plt.tight_layout()
+    plt.show()
+
+
+def chrysalis_plot_aa(adata, pcs=8, hexcodes=None, seed=None, vis='mip_colors'):
+
+    def norm_weight(a, b):
+        # for weighting PCs if we want to use blend_colors
+        return (b - a) / b
+
+    # define PC colors
+    if hexcodes is None:
+        hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+
+        if pcs > 8:
+            if seed is None:
+                np.random.seed(len(adata))
+            else:
+                np.random.seed(seed)
+            hexcodes = generate_random_colors(pcs, hue_range=(0.0, 1.0), min_distance=0.05)
+
+        if seed is None:
+            np.random.seed(len(adata))
+        else:
+            np.random.seed(seed)
+        np.random.shuffle(hexcodes)
+    else:
+        assert len(hexcodes) >= pcs
+
+
+    # define colormaps
+    cmaps = []
+    for pc in range(pcs):
+        pc_cmap = black_to_color(hexcodes[pc])
+        pc_rgb = get_rgb_from_colormap(pc_cmap,
+                                       vmin=min(adata.obs[f'aa_{pc}']),
+                                       vmax=max(adata.obs[f'aa_{pc}']),
+                                       value=adata.obs[f'aa_{pc}'])
+        cmaps.append(pc_rgb)
+
+    # blend colormaps
+    if vis is 'mip_colors':
+        cblend = mip_colors(cmaps[0], cmaps[1],)
+        if len(cmaps) > 2:
+            i = 2
+            for cmap in cmaps[2:]:
+                cblend = mip_colors(cblend, cmap,)
+                i += 1
+    elif vis is 'blend_colors':
+        var_r = np.cumsum(adata.uns['pca']['variance_ratio'][:pcs])  # get variance ratios to normalize
+        cblend = blend_colors(cmaps[0], cmaps[1], weight=norm_weight(var_r[0], var_r[1]))
+        if len(cmaps) > 2:
+            i = 2
+            for cmap in cmaps[2:]:
+                cblend = blend_colors(cblend, cmap, weight=norm_weight(var_r[i - 1], var_r[i]))
+                i += 1
+    else:
+        raise Exception('vis should be either mip_colors or blend colors')
+
+    # plot
+    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+    ax.axis('off')
+    row = adata.obsm['spatial'][:, 0]
+    col = adata.obsm['spatial'][:, 1] * -1
+    ax.set_xlim((np.min(row) * 0.9, np.max(row) * 1.1))
+    ax.set_ylim((np.min(col) * 1.1, np.max(col) * 0.9))
+    ax.set_aspect('equal')
+
+    # get the physical length of the x and y axes
+    x_length = np.diff(ax.get_xlim())[0] * fig.dpi * fig.get_size_inches()[0]
+    y_length = np.diff(ax.get_ylim())[0] * fig.dpi * fig.get_size_inches()[1]
+
+    size = np.sqrt(x_length * y_length) * 0.000005
+
+    plt.scatter(row, col, s=size, marker="h", c=cblend)
