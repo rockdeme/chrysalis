@@ -151,7 +151,7 @@ sns.histplot(moran_df)
 sns.rugplot(x=[moran_df.iloc[150][0]], c='red')
 plt.show()
 
-adata.var['highly_variable'] = [True if x in moran_df[:150].index else False for x in adata.var_names]
+adata.var['highly_variable'] = [True if x in moran_df[:1000].index else False for x in adata.var_names]
 
 hv = adata[:, adata.var['highly_variable'] == True].to_df().corr('pearson')
 
@@ -167,11 +167,6 @@ sc.pl.pca_variance_ratio(adata)
 
 for i in range(20):
     adata.obs[f'pca_{i}'] = adata.obsm['X_pca'][:, i]
-fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-sc.pl.spatial(adata, img_key='hires', color='pca_0', size=1.5, alpha=1,
-              ax=ax, show=False, cmap=cmap)
-fig.tight_layout()
-plt.show()
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -239,13 +234,15 @@ def mip_colors(colors_1, colors_2):
     return mip_color
 
 
-def chrysalis_plot(adata, pcs=8, hexcodes=None):
+def chrysalis_plot(adata, pcs=8, hexcodes=None, seed=42):
     def norm_weight(a, b):
         # return (b - a) / b
         return 0.5
 
     if hexcodes == None:
         hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+        np.random.seed(seed)
+        np.random.shuffle(hexcodes)
     else:
         assert len(hexcodes) >= pcs
 
@@ -282,7 +279,7 @@ def chrysalis_plot(adata, pcs=8, hexcodes=None):
     plt.show()
 
 
-chrysalis_plot(adata)
+chrysalis_plot(adata, pcs=8, seed=10)
 
 
 
