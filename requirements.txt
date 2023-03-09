@@ -1,0 +1,9 @@
+archetypes
+matplotlib
+numpy
+pandas
+pysal
+scanpy
+scikit_learn
+scipy
+tqdm

@@ -14,27 +14,45 @@ By combining PCA with AA, **chrysalis** can define distinct tissue compartments 
 </p>
 
 ## Package
-**chrysalis** can be used with any preexisting `anndata` snapshot of 10X Visium datasets generated with `scanpy`, and on new samples without the need of preprocessing. It is designed to be as lightweight as possible, however it relies on `libpysal` for its fast implementation of Moran's I.
+**chrysalis** can be used with any preexisting `anndata` snapshot of 10X Visium datasets generated with `scanpy`, and on new samples without the need of preprocessing. It is designed to be as lightweight as possible, however currently it relies on `libpysal` for its fast implementation of Moran's I.
 
-**chrysalis** requires the following packages before installation:
-- asd
-- asd
+**chrysalis** requires the following packages:
+- numpy
+- pandas
+- matplotlib
+- scanpy
+- pysal
+- archetypes
+- scikit_learn
+- scipy
+- tqdm
 
 To install **chrysalis**:
 ```terminal
-pip install chrysalis
+# pip install chrysalis -r requirements.txt
+pip install -i https://test.pypi.org/simple/ chrysalis==1.0b0 -r requirements.txt
 ```
+If `rvlib` fails to install, you can try installing it with conda:
+```terminal
+conda install -c conda-forge rvlib 
+```
+
 ## Usage
 
 ```python
-import chrysalis as ch
+import scanpy as sc
+import matplotlib.pyplot as plt
+from chrysalis.functions import chrysalis_calculate, chrysalis_plot
 
-adata = sc.datasets.visium_sge(sample_id=sample)
-ch.calculate(adata)
-ch.plot_aa(adata, pcs=8)
+# download and read data
+adata = sc.datasets.visium_sge(sample_id='V1_Human_Lymph_Node')
+# calculate embeddings
+chrysalis_calculate(adata)
+# generate visualization
+chrysalis_plot(adata)
 plt.show()
 ```
-`ch.calculate(adata)` stores some data under `adata.obsm` allowing `ch.plot(adata)` to be called without the need of recalculating the embeddings every time if the `anndata` object is saved.
+`chrysalis_calculate(adata)` stores data under `adata.obsm` allowing `chrysalis_plot(adata)` to be called without the need of recalculating the embeddings every time if the `anndata` object is saved.
 
 ## Gallery
 
