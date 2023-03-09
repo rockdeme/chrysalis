@@ -34,7 +34,7 @@ ch.calculate(adata)
 ch.plot_aa(adata, pcs=8)
 plt.show()
 ```
-`ch.calculate(adata)` stores some data under `adata.uns` allowing `ch.plot(adata)` to be called without the need of recalculating the embeddings every time if the `anndata` object is saved.
+`ch.calculate(adata)` stores some data under `adata.obsm` allowing `ch.plot(adata)` to be called without the need of recalculating the embeddings every time if the `anndata` object is saved.
 
 ## Gallery
 
