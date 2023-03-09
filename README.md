@@ -2,7 +2,7 @@
    <img src="misc/logo.svg" width="300">
 </p>
 
-**chrysalis** is a visualization tool that generates neat and meaningful visual representations of spatial transcriptomics datasets. It achieves this by leveraging PCA, archetypal analysis and spatially variable gene detection. Moreover, it seamlessly integrates into scanpy pipelines.
+**chrysalis** is a visualization tool that generates neat and meaningful visual representations of spatial transcriptomics datasets. It achieves this by leveraging PCA, archetypal analysis and spatially variable gene detection. Moreover, it seamlessly integrates into `scanpy` based pipelines.
 
 <p align="center">
    <img src="misc/demo.png" width="781">
