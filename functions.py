@@ -114,12 +114,13 @@ def mip_colors(colors_1, colors_2):
     return mip_color
 
 
-def chrysalis_calculate(adata):
+def chrysalis_calculate(adata, min_spots=1000, top_svg=1000, n_archetypes=8):
     sc.settings.verbosity = 0
-    ad = sc.pp.filter_genes(adata, min_cells=1000, copy=True)
+    ad = sc.pp.filter_genes(adata, min_cells=min_spots, copy=True)
     ad.var_names_make_unique()  # moran dies so need some check later
-    sc.pp.normalize_total(ad, inplace=True)
-    sc.pp.log1p(ad)
+    if "log1p" not in adata.uns_keys():
+        sc.pp.normalize_total(ad, inplace=True)
+        sc.pp.log1p(ad)
 
     gene_matrix = ad.to_df()
 
@@ -136,8 +137,8 @@ def chrysalis_calculate(adata):
 
     moran_df = pd.DataFrame(data=moran_dict.values(), index=moran_dict.keys(), columns=["Moran's I"])
     moran_df = moran_df.sort_values(ascending=False, by="Moran's I")
-    adata.var['spatially_variable'] = [True if x in moran_df[:1000].index else False for x in adata.var_names]
-    ad.var['spatially_variable'] = [True if x in moran_df[:1000].index else False for x in ad.var_names]
+    adata.var['spatially_variable'] = [True if x in moran_df[:top_svg].index else False for x in adata.var_names]
+    ad.var['spatially_variable'] = [True if x in moran_df[:top_svg].index else False for x in ad.var_names]
     adata.var["Moran's I"] = moran_df["Moran's I"]
 
     pcs = np.asarray(ad[:, ad.var['spatially_variable'] == True].X.todense())
@@ -148,8 +149,8 @@ def chrysalis_calculate(adata):
     else:
         adata.uns['chr_pca']['variance_ratio'] = pca.explained_variance_ratio_
 
-    model = arch.AA(n_archetypes=8, n_init=3, max_iter=200, tol=0.001, random_state=42)
-    model.fit(adata.obsm['chr_X_pca'][:, :7])
+    model = arch.AA(n_archetypes=n_archetypes, n_init=3, max_iter=200, tol=0.001, random_state=42)
+    model.fit(adata.obsm['chr_X_pca'][:, :n_archetypes-1])
     adata.obsm[f'chr_aa'] = model.alphas_
 
 
@@ -197,7 +198,7 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa'):
             i += 1
 
     # plot
-    fig, ax = plt.subplots(1, 1, figsize=(15, 15))
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
     ax.axis('off')
     row = adata.obsm['spatial'][:, 0]
     col = adata.obsm['spatial'][:, 1] * -1
@@ -212,11 +213,5 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa'):
     # get the physical length of the x and y axes
     ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
     size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
-    print(size_const)
-    y_length = np.diff(ax.get_ylim())[0] * fig.dpi * fig.get_size_inches()[1]
-
-    size = size_const ** 2 * 1.3
-    print(size)
-
+    size = size_const ** 2 * 0.95
     plt.scatter(row, col, s=size, marker="h", c=cblend)
-    plt.show()

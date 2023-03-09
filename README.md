@@ -1,10 +1,12 @@
 <p align="center">
-   <img src="misc/logo.svg" width="500">
+   <img src="misc/logo.svg" width="300">
 </p>
 
 **chrysalis** is a visualization tool that generates neat and meaningful visual representations of spatial transcriptomics datasets. It achieves this by leveraging PCA, Archetype Analysis and spatially variable gene detection. Moreover, it seamlessly integrates into scanpy pipelines.
-<img src="plots/V1_Human_Lymph_Node_aa.svg" width="300">
-<img src="plots/V1_Mouse_Brain_Sagittal_Anterior_aa.svg" width="300">
+
+<p align="center">
+   <img src="misc/demo.svg" width="800">
+</p>
 
 By combining PCA with AA, **chrysalis** can define distinct tissue compartments and cellular niches, which can be highlighted with specific colors. For instance, on the V1_Human_Lymph_Node dataset, **chrysalis** can identify and highlight various regions, such as germinal centers (yellow), B cell follicles (dark orange), and T cell compartments (lime). You can find more examples in the gallery section.
 <p align="center">
@@ -36,4 +38,20 @@ plt.show()
 
 ## Gallery
 
-
+<img src="plots/gallery/V1_Mouse_Brain_Sagittal_Anterior.svg" width="500">
+<img src="plots/gallery/V1_Mouse_Brain_Sagittal_Posterior.svg" width="500">
+<img src="plots/gallery/V1_Human_Lymph_Node.svg" width="500">
+<img src="plots/gallery/V1_Mouse_Kidney.svg" width="500">
+<img src="plots/gallery/V1_Breast_Cancer_Block_A_Section_1.svg" width="500">
+<img src="plots/gallery/V1_Breast_Cancer_Block_A_Section_2.svg" width="500">
+<img src="plots/gallery/V1_Human_Heart.svg" width="500">
+<img src="plots/gallery/V1_Adult_Mouse_Brain.svg" width="500">
+<img src="plots/gallery/V1_Mouse_Brain_Sagittal_Posterior_Section_2.svg" width="500">
+<img src="plots/gallery/V1_Mouse_Brain_Sagittal_Anterior_Section_2.svg" width="500">
+<img src="plots/gallery/V1_Adult_Mouse_Brain_Coronal_Section_1.svg" width="500">
+<img src="plots/gallery/V1_Adult_Mouse_Brain_Coronal_Section_2.svg" width="500">
+<img src="plots/gallery/Parent_Visium_Human_Cerebellum.svg" width="500">
+<img src="plots/gallery/Parent_Visium_Human_Glioblastoma.svg" width="500">
+<img src="plots/gallery/Parent_Visium_Human_BreastCancer.svg" width="500">
+<img src="plots/gallery/Parent_Visium_Human_OvarianCancer.svg" width="500">
+<img src="plots/gallery/Parent_Visium_Human_ColorectalCancer.svg" width="500">
