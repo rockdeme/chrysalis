@@ -3,13 +3,13 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 from tqdm import tqdm
-import geopandas as gpd
 import archetypes as arch
 from pysal.lib import weights
 from pysal.explore import esda
 import matplotlib.pyplot as plt
-from shapely.geometry import Point
 import matplotlib.colors as mcolors
+from sklearn.decomposition import PCA
+from scipy.spatial.distance import cdist
 
 
 def get_moransI(w_orig, y):
@@ -114,182 +114,90 @@ def mip_colors(colors_1, colors_2):
     return mip_color
 
 
-def chrysalis_plot(adata, pcs=8, hexcodes=None, seed=None, vis='mip_colors'):
-
-    def norm_weight(a, b):
-        # for weighting PCs if we want to use blend_colors
-        return (b - a) / b
-
-    # define PC colors
-    if hexcodes is None:
-        hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
-        if seed is None:
-            np.random.seed(len(adata))
-        else:
-            np.random.seed(seed)
-        np.random.shuffle(hexcodes)
-    else:
-        assert len(hexcodes) >= pcs
-
-
-    # define colormaps
-    cmaps = []
-    for pc in range(pcs):
-        pc_cmap = black_to_color(hexcodes[pc])
-        pc_rgb = get_rgb_from_colormap(pc_cmap,
-                                       vmin=min(adata.obs[f'pca_{pc}']),
-                                       vmax=max(adata.obs[f'pca_{pc}']),
-                                       value=adata.obs[f'pca_{pc}'])
-        cmaps.append(pc_rgb)
-
-    # blend colormaps
-    if vis is 'mip_colors':
-        cblend = mip_colors(cmaps[0], cmaps[1],)
-        if len(cmaps) > 2:
-            i = 2
-            for cmap in cmaps[2:]:
-                cblend = mip_colors(cblend, cmap,)
-                i += 1
-    elif vis is 'blend_colors':
-        var_r = np.cumsum(adata.uns['pca']['variance_ratio'][:pcs])  # get variance ratios to normalize
-        cblend = blend_colors(cmaps[0], cmaps[1], weight=norm_weight(var_r[0], var_r[1]))
-        if len(cmaps) > 2:
-            i = 2
-            for cmap in cmaps[2:]:
-                cblend = blend_colors(cblend, cmap, weight=norm_weight(var_r[i - 1], var_r[i]))
-                i += 1
-    else:
-        raise Exception('vis should be either mip_colors or blend colors')
-
-    # plot
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-    ax.axis('off')
-    # ax[idx].set_xlim((0, 8500))
-    # ax[idx].set_ylim((-8500, 0))
-    row = adata.obsm['spatial'][:, 0]
-    col = adata.obsm['spatial'][:, 1] * -1
-    plt.scatter(row, col, s=25, marker="h", c=cblend)
-    ax.set_aspect('equal')
-
-
 def chrysalis_calculate(adata):
-    sc.pp.filter_genes(adata, min_cells=1000)
-    adata.var_names_make_unique()  # moran dies so need some check later
-    sc.pp.normalize_total(adata, inplace=True)
-    sc.pp.log1p(adata)
+    sc.settings.verbosity = 0
+    ad = sc.pp.filter_genes(adata, min_cells=1000, copy=True)
+    ad.var_names_make_unique()  # moran dies so need some check later
+    sc.pp.normalize_total(ad, inplace=True)
+    sc.pp.log1p(ad)
 
-    gene_matrix = adata.to_df()
-    gene_list = list(gene_matrix.columns)
-    gdf = gpd.GeoDataFrame(gene_matrix)
-    gdf['spots'] = [Point(x, y) for x, y in zip(adata.obsm['spatial'][:, 0], adata.obsm['spatial'][:, 1] * -1)]
-    gdf.geometry = gdf['spots']
+    gene_matrix = ad.to_df()
 
-    w = weights.KNN.from_dataframe(gdf, k=6)
+    points = adata.obsm['spatial'].copy()
+    points[:, 1] = points[:, 1] * -1
+
+    w = weights.KNN.from_array(points, k=6)
     w.transform = 'R'
     moran_dict = {}
-    #  moran.by_col(gdf,gene_list, w=w, permutations=0) this doesn't seem to be faster
-    for c in tqdm(gene_list):
-        moran = esda.moran.Moran(gdf[c], w, permutations=0)
+
+    for c in tqdm(ad.var_names):
+        moran = esda.moran.Moran(gene_matrix[c], w, permutations=0)
         moran_dict[c] = moran.I
 
     moran_df = pd.DataFrame(data=moran_dict.values(), index=moran_dict.keys(), columns=["Moran's I"])
     moran_df = moran_df.sort_values(ascending=False, by="Moran's I")
-    adata.var['highly_variable'] = [True if x in moran_df[:1000].index else False for x in adata.var_names]
+    adata.var['spatially_variable'] = [True if x in moran_df[:1000].index else False for x in adata.var_names]
+    ad.var['spatially_variable'] = [True if x in moran_df[:1000].index else False for x in ad.var_names]
     adata.var["Moran's I"] = moran_df["Moran's I"]
 
-    sc.pp.pca(adata)
+    pcs = np.asarray(ad[:, ad.var['spatially_variable'] == True].X.todense())
+    pca = PCA(n_components=50, svd_solver='arpack', random_state=0)
+    adata.obsm['chr_X_pca'] = pca.fit_transform(pcs)
+    if 'chr_pca' not in adata.uns.keys():
+        adata.uns['chr_pca'] = {'variance_ratio': pca.explained_variance_ratio_}
+    else:
+        adata.uns['chr_pca']['variance_ratio'] = pca.explained_variance_ratio_
 
-    for i in range(20):
-        adata.obs[f'pca_{i}'] = adata.obsm['X_pca'][:, i]
-
-    # archetype analysis
     model = arch.AA(n_archetypes=8, n_init=3, max_iter=200, tol=0.001, random_state=42)
-    model.fit(adata.obsm['X_pca'][:, :7])
-
-    for i in range(model.alphas_.shape[1]):
-        adata.obs[f'aa_{i}'] = model.alphas_[:, i]
+    model.fit(adata.obsm['chr_X_pca'][:, :7])
+    adata.obsm[f'chr_aa'] = model.alphas_
 
 
-def plot_loadings(adata):
-    hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
-
-    np.random.seed(len(adata))
-    np.random.shuffle(hexcodes)
-
-    loadings = pd.DataFrame(adata.varm['PCs'][:, :20], index=adata.var_names)
-    sl = loadings[[0]].sort_values(ascending=False, by=0)[:10]
-
-    fig, ax = plt.subplots(2, 4, figsize=(3 * 4, 4 * 2))
-    ax = ax.flatten()
-    for i in range(8):
-        sl = loadings[[i]].sort_values(ascending=False, by=i)[:10]
-        ax[i].axis('on')
-        ax[i].grid(axis='x')
-        ax[i].set_axisbelow(True)
-        ax[i].barh(list(sl.index)[::-1], list(sl[i].values)[::-1], color=hexcodes[i])
-        ax[i].set_xlabel('Loading')
-        ax[i].set_title(f'PC {i}')
-    plt.tight_layout()
-    plt.show()
-
-
-def chrysalis_plot_aa(adata, pcs=8, hexcodes=None, seed=None, vis='mip_colors'):
-
-    def norm_weight(a, b):
-        # for weighting PCs if we want to use blend_colors
-        return (b - a) / b
+def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa'):
 
     # define PC colors
     if hexcodes is None:
         hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
-
-        if pcs > 8:
-            if seed is None:
-                np.random.seed(len(adata))
-            else:
-                np.random.seed(seed)
-            hexcodes = generate_random_colors(pcs, hue_range=(0.0, 1.0), min_distance=0.05)
-
         if seed is None:
             np.random.seed(len(adata))
         else:
             np.random.seed(seed)
         np.random.shuffle(hexcodes)
     else:
-        assert len(hexcodes) >= pcs
-
-
+        assert len(hexcodes) >= dim
     # define colormaps
     cmaps = []
-    for pc in range(pcs):
-        pc_cmap = black_to_color(hexcodes[pc])
-        pc_rgb = get_rgb_from_colormap(pc_cmap,
-                                       vmin=min(adata.obs[f'aa_{pc}']),
-                                       vmax=max(adata.obs[f'aa_{pc}']),
-                                       value=adata.obs[f'aa_{pc}'])
-        cmaps.append(pc_rgb)
 
-    # blend colormaps
-    if vis is 'mip_colors':
-        cblend = mip_colors(cmaps[0], cmaps[1],)
-        if len(cmaps) > 2:
-            i = 2
-            for cmap in cmaps[2:]:
-                cblend = mip_colors(cblend, cmap,)
-                i += 1
-    elif vis is 'blend_colors':
-        var_r = np.cumsum(adata.uns['pca']['variance_ratio'][:pcs])  # get variance ratios to normalize
-        cblend = blend_colors(cmaps[0], cmaps[1], weight=norm_weight(var_r[0], var_r[1]))
-        if len(cmaps) > 2:
-            i = 2
-            for cmap in cmaps[2:]:
-                cblend = blend_colors(cblend, cmap, weight=norm_weight(var_r[i - 1], var_r[i]))
-                i += 1
+    if mode == 'aa':
+        for d in range(dim):
+            pc_cmap = black_to_color(hexcodes[d])
+            pc_rgb = get_rgb_from_colormap(pc_cmap,
+                                           vmin=min(adata.obsm['chr_aa'][:, d]),
+                                           vmax=max(adata.obsm['chr_aa'][:, d]),
+                                           value=adata.obsm['chr_aa'][:, d])
+            cmaps.append(pc_rgb)
+
+    elif mode == 'pca':
+        for d in range(dim):
+            pc_cmap = black_to_color(hexcodes[d])
+            pc_rgb = get_rgb_from_colormap(pc_cmap,
+                                           vmin=min(adata.obsm['chr_X_pca'][:, d]),
+                                           vmax=max(adata.obsm['chr_X_pca'][:, d]),
+                                           value=adata.obsm['chr_X_pca'][:, d])
+            cmaps.append(pc_rgb)
     else:
-        raise Exception('vis should be either mip_colors or blend colors')
+        raise Exception
+
+    # mip colormaps
+    cblend = mip_colors(cmaps[0], cmaps[1],)
+    if len(cmaps) > 2:
+        i = 2
+        for cmap in cmaps[2:]:
+            cblend = mip_colors(cblend, cmap,)
+            i += 1
 
     # plot
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+    fig, ax = plt.subplots(1, 1, figsize=(15, 15))
     ax.axis('off')
     row = adata.obsm['spatial'][:, 0]
     col = adata.obsm['spatial'][:, 1] * -1
@@ -297,10 +205,18 @@ def chrysalis_plot_aa(adata, pcs=8, hexcodes=None, seed=None, vis='mip_colors'):
     ax.set_ylim((np.min(col) * 1.1, np.max(col) * 0.9))
     ax.set_aspect('equal')
 
+    distances = cdist(np.column_stack((row, col)), np.column_stack((row, col)))
+    np.fill_diagonal(distances, np.inf)
+    min_distance = np.min(distances)
+
     # get the physical length of the x and y axes
-    x_length = np.diff(ax.get_xlim())[0] * fig.dpi * fig.get_size_inches()[0]
+    ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
+    size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
+    print(size_const)
     y_length = np.diff(ax.get_ylim())[0] * fig.dpi * fig.get_size_inches()[1]
 
-    size = np.sqrt(x_length * y_length) * 0.000005
+    size = size_const ** 2 * 1.3
+    print(size)
 
     plt.scatter(row, col, s=size, marker="h", c=cblend)
+    plt.show()
