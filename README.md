@@ -8,7 +8,7 @@
    <img src="misc/demo.png" width="781">
 </p>
 
-By combining PCA with AA, **chrysalis** can define distinct tissue compartments and cellular niches, which can be highlighted with specific colors. For instance, on the `V1_Human_Lymph_Node dataset`, **chrysalis** can identify and highlight various regions, such as germinal centers (yellow), B cell follicles (dark orange), and T cell compartments (lime). You can find more examples in the [gallery](https://github.com/rockdeme/chrysalis#gallery) section.
+By combining PCA with AA, **chrysalis** can define distinct tissue compartments and cellular niches, which can be highlighted with specific colors. For instance, on the `V1_Human_Lymph_Node` dataset, **chrysalis** can identify and highlight various regions, such as germinal centers (yellow), B cell follicles (dark orange), and T cell compartments (lime). You can find more examples in the [gallery](https://github.com/rockdeme/chrysalis#gallery) section.
 <p align="center">
    <img src="misc/human_lymph_node.jpg" width="670">
 </p>
