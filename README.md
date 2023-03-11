@@ -29,7 +29,6 @@ By combining PCA with AA, **chrysalis** can define distinct tissue compartments 
 
 To install **chrysalis**:
 ```terminal
-# pip install chrysalis -r requirements.txt
 pip install -i https://test.pypi.org/simple/ chrysalis==1.0b0 -r requirements.txt
 ```
 If `rvlib` fails to install, you can try installing it with conda:
