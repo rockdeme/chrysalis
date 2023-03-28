@@ -120,7 +120,7 @@ def mip_colors(colors_1, colors_2):
     return mip_color
 
 
-def chrysalis_calculate(adata, min_spots=0.1, top_svg=1000, min_morans=0.25, n_archetypes=8):
+def chrysalis_calculate(adata, min_spots=0.1, top_svg=1000, min_morans=0.05, n_archetypes=8):
     """
     Calculates spatially variable genes and embeddings for visualization.
 
