@@ -1,9 +1,11 @@
+import pandas as pd
 import scanpy as sc
 import matplotlib.pyplot as plt
 from functions import chrysalis_calculate, chrysalis_plot
 
 
-linux = False
+linux = True
+
 if linux:
     plots_path = '/mnt/c/Users/demeter_turos/PycharmProjects/chrysalis/plots/'
     data_path = '/mnt/c/Users/demeter_turos/PycharmProjects/chrysalis/data/processed/'

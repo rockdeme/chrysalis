@@ -2,6 +2,7 @@ import colorsys
 import numpy as np
 import pandas as pd
 import scanpy as sc
+import seaborn as sns
 from tqdm import tqdm
 import archetypes as arch
 from pysal.lib import weights
@@ -10,9 +11,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from sklearn.decomposition import PCA
 from scipy.spatial.distance import cdist
+from scipy.cluster.hierarchy import linkage, leaves_list
 
 
-def get_moransI(w_orig, y):
+def morans_i(w_orig, y):
     # REF: https://github.com/yatshunlee/spatial_autocorrelation/blob/main/spatial_autocorrelation/moransI.py modified
     # wth some ChatGPT magic to remove the for loops
 
@@ -43,23 +45,31 @@ def black_to_color(color):
     return cmap
 
 
+def color_to_color(first, last):
+    # define the colors in the colormap
+    colors = [first, last]
+    # create a colormap object using the defined colors
+    cmap = mcolors.LinearSegmentedColormap.from_list("", colors)
+    return cmap
+
+
 def hls_to_hex(h, l, s):
-    # convert the HSV values to RGB values
+    # convert the HLS values to RGB values
     r, g, b = colorsys.hls_to_rgb(h, l, s)
     # convert the RGB values to a hex color code
     hex_code = "#{:02X}{:02X}{:02X}".format(int(r * 255), int(g * 255), 76)
     return hex_code
 
 
-def generate_random_colors(num_colors, hue_range=(0, 1), saturation=0.5, lightness=0.5, min_distance=0.2):
+def generate_random_colors(num_colors, hue_range=(0, 1), saturation=0.5, lightness=0.5, min_distance=0.05):
     colors = []
     hue_list = []
-
+    np.random.seed(42)
     while len(colors) < num_colors:
-        # Generate a random hue value within the specified range
+        # generate a random hue value within the specified range
         hue = np.random.uniform(hue_range[0], hue_range[1])
 
-        # Check if the hue is far enough away from the previous hue
+        # check if the hue is far enough away from the previous hue
         if len(hue_list) == 0 or all(abs(hue - h) > min_distance for h in hue_list):
             hue_list.append(hue)
             saturation = saturation
@@ -69,6 +79,7 @@ def generate_random_colors(num_colors, hue_range=(0, 1), saturation=0.5, lightne
             colors.append(hex_code)
 
     return colors
+
 
 def get_rgb_from_colormap(cmap, vmin, vmax, value):
     # normalize the value within the range [0, 1]
@@ -109,20 +120,23 @@ def mip_colors(colors_1, colors_2):
     return mip_color
 
 
-def chrysalis_calculate(adata, min_spots=1000, top_svg=1000, n_archetypes=8):
+def chrysalis_calculate(adata, min_spots=0.1, top_svg=1000, min_morans=0.25, n_archetypes=8):
     """
     Calculates spatially variable genes and embeddings for visualization.
 
     :param adata: 10X Visium anndata matrix created with scanpy.
-    :param min_spots: Discard genes expressed in less capture spots than this threshold. Speeds up spatially variable
+    :param min_spots: Discard genes expressed in less capture spots than this fraction (0<v<1). Speeds up spatially variable
     gene computation but can be set lower if sample area is small.
     :param top_svg: Number of spatially variable genes to be considered for PCA.
     :param n_archetypes: Number of inferred archetypes, best leave it at 8, no significant gain by trying to visualize
     more.
     :return: Directly annotates the data matrix: adata.obsm['chr_X_pca'] and adata.obsm['chr_aa'].
     """
+    assert 0 < min_spots < 1
+    assert -1 < min_morans < 1
+
     sc.settings.verbosity = 0
-    ad = sc.pp.filter_genes(adata, min_cells=min_spots, copy=True)
+    ad = sc.pp.filter_genes(adata, min_cells=int(len(adata) * min_spots), copy=True)
     ad.var_names_make_unique()  # moran dies so need some check later
     if "log1p" not in adata.uns_keys():
         sc.pp.normalize_total(ad, inplace=True)
@@ -137,27 +151,49 @@ def chrysalis_calculate(adata, min_spots=1000, top_svg=1000, n_archetypes=8):
     w.transform = 'R'
     moran_dict = {}
 
-    for c in tqdm(ad.var_names):
+    for c in tqdm(ad.var_names, desc='Calculating SVGs'):
         moran = esda.moran.Moran(gene_matrix[c], w, permutations=0)
         moran_dict[c] = moran.I
 
     moran_df = pd.DataFrame(data=moran_dict.values(), index=moran_dict.keys(), columns=["Moran's I"])
     moran_df = moran_df.sort_values(ascending=False, by="Moran's I")
-    adata.var['spatially_variable'] = [True if x in moran_df[:top_svg].index else False for x in adata.var_names]
-    ad.var['spatially_variable'] = [True if x in moran_df[:top_svg].index else False for x in ad.var_names]
     adata.var["Moran's I"] = moran_df["Moran's I"]
+    # select threshold to choose from
+    if len(moran_df[:top_svg]) < len(moran_df[moran_df["Moran's I"] > min_morans]):
+        adata.var['spatially_variable'] = [True if x in moran_df[:top_svg].index else False for x in adata.var_names]
+        ad.var['spatially_variable'] = [True if x in moran_df[:top_svg].index else False for x in ad.var_names]
+    else:
+        moran_df = moran_df[moran_df["Moran's I"] > min_morans]
+        adata.var['spatially_variable'] = [True if x in moran_df.index else False for x in adata.var_names]
+        ad.var['spatially_variable'] = [True if x in moran_df.index else False for x in ad.var_names]
 
     pcs = np.asarray(ad[:, ad.var['spatially_variable'] == True].X.todense())
     pca = PCA(n_components=50, svd_solver='arpack', random_state=0)
     adata.obsm['chr_X_pca'] = pca.fit_transform(pcs)
+
     if 'chr_pca' not in adata.uns.keys():
-        adata.uns['chr_pca'] = {'variance_ratio': pca.explained_variance_ratio_}
+        adata.uns['chr_pca'] = {'variance_ratio': pca.explained_variance_ratio_,
+                                'loadings': pca.components_,
+                                'features': list(ad[:, ad.var['spatially_variable'] == True].var_names)}
     else:
         adata.uns['chr_pca']['variance_ratio'] = pca.explained_variance_ratio_
+        adata.uns['chr_pca']['loadings'] = pca.components_
+        adata.uns['chr_pca']['features'] = list(ad[:, ad.var['spatially_variable'] == True].var_names)
 
     model = arch.AA(n_archetypes=n_archetypes, n_init=3, max_iter=200, tol=0.001, random_state=42)
     model.fit(adata.obsm['chr_X_pca'][:, :n_archetypes-1])
     adata.obsm[f'chr_aa'] = model.alphas_
+
+    # get the mean of the original feature matrix and add it to the multiplied archetypes with the PCA loading matrix
+    # aa_loadings = np.mean(pcs, axis=0) + np.dot(model.archetypes_.T, pca.components_[:n_archetypes, :])
+    aa_loadings = np.dot(adata.uns['chr_aa']['archetypes'], adata.uns['chr_pca']['loadings'][:n_archetypes-1, :])
+
+    if 'chr_aa' not in adata.uns.keys():
+        adata.uns['chr_aa'] = {'archetypes': model.archetypes_,
+                               'alphas': model.alphas_}
+    else:
+        adata.uns['chr_aa']['archetypes'] = model.archetypes_
+        adata.uns['chr_aa']['loadings'] = aa_loadings
 
 
 def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa'):
@@ -171,16 +207,21 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa'):
     :return:
     """
 
-    # define PC colors
+    # define compartment colors
+    # default colormap with 8 colors
     if hexcodes is None:
-        hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
-        if seed is None:
-            np.random.seed(len(adata))
+        if dim > 8:
+            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5)
         else:
-            np.random.seed(seed)
-        np.random.shuffle(hexcodes)
+            hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+            if seed is None:
+                np.random.seed(len(adata))
+            else:
+                np.random.seed(seed)
+            np.random.shuffle(hexcodes)
     else:
         assert len(hexcodes) >= dim
+
     # define colormaps
     cmaps = []
 
@@ -228,5 +269,214 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa'):
     # get the physical length of the x and y axes
     ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
     size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
-    size = size_const ** 2 * 0.95
+    size = size_const ** 2 * 1.05
     plt.scatter(row, col, s=size, marker="h", c=cblend)
+
+
+def plot_component(adata, fig, ax, selected_dim, dim=8, hexcodes=None, seed=None, mode='aa', color_first='black',
+                   spot_size=1.05):
+
+    # todo: have a loot at spot_size, still not exactly proportional to the physical size of the plot
+
+    # define PC colors
+    if hexcodes is None:
+        hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+        if seed is None:
+            np.random.seed(len(adata))
+        else:
+            np.random.seed(seed)
+        np.random.shuffle(hexcodes)
+    else:
+        assert len(hexcodes) >= dim
+    # define colormaps
+    cmaps = []
+    if mode == 'aa':
+        for d in range(dim):
+            pc_cmap = color_to_color(color_first, hexcodes[d])
+            pc_rgb = get_rgb_from_colormap(pc_cmap,
+                                           vmin=min(adata.obsm['chr_aa'][:, d]),
+                                           vmax=max(adata.obsm['chr_aa'][:, d]),
+                                           value=adata.obsm['chr_aa'][:, d])
+            cmaps.append(pc_rgb)
+
+    elif mode == 'pca':
+        for d in range(dim):
+            pc_cmap = color_to_color(color_first, hexcodes[d])
+            pc_rgb = get_rgb_from_colormap(pc_cmap,
+                                           vmin=min(adata.obsm['chr_X_pca'][:, d]),
+                                           vmax=max(adata.obsm['chr_X_pca'][:, d]),
+                                           value=adata.obsm['chr_X_pca'][:, d])
+            cmaps.append(pc_rgb)
+    else:
+        raise Exception
+    # plot
+    # fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+    ax.axis('off')
+    row = adata.obsm['spatial'][:, 0]
+    col = adata.obsm['spatial'][:, 1] * -1
+    ax.set_xlim((np.min(row) * 0.9, np.max(row) * 1.1))
+    ax.set_ylim((np.min(col) * 1.1, np.max(col) * 0.9))
+    ax.set_aspect('equal')
+
+    distances = cdist(np.column_stack((row, col)), np.column_stack((row, col)))
+    np.fill_diagonal(distances, np.inf)
+    min_distance = np.min(distances)
+
+    # get the physical length of the x and y axes
+    ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
+    size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
+    size = size_const ** 2 * spot_size
+    ax.scatter(row, col, s=size, marker="h", c=cmaps[selected_dim])
+
+
+def plot_explained_variance(adata):
+    sns.set_style("ticks")
+    pca_df = pd.DataFrame(data=adata.uns['chr_pca']['variance_ratio'], columns=['Explained variance'])
+    pca_df = pca_df.cumsum()
+
+    n_svg = adata.var['spatially_variable'].value_counts()[True]
+
+    fig, ax = plt.subplots(1, 1, figsize=(4, 3))
+    sns.lineplot(pca_df, markers=True, legend=True, ax=ax, palette=['#8b33ff'])
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+    ax.set_yticklabels(['{:,.0%}'.format(x) for x in ax.get_yticks()])
+    ax.set_ylabel('Explained variance')
+    ax.set_xlabel('PCs')
+    ax.set_title(f'SVGs: {n_svg}')
+    # ax.grid(axis='both')
+    ax.grid(axis='both', linestyle='-', linewidth='0.5', color='grey')
+    ax.set_axisbelow(True)
+    plt.tight_layout()
+
+
+def plot_svgs(adata):
+
+    morans_df = adata.var["Moran's I"].sort_values(ascending=False)
+    morans_df = morans_df.dropna()
+
+    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+    sns.lineplot(list(morans_df), linewidth=2, color='#8b33ff')
+    ax.grid(axis='both', linestyle='-', linewidth='0.5', color='grey')
+    ax.set_axisbelow(True)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+    ax.set_ylabel("Moran's I")
+    ax.set_xlabel('Gene #')
+    ax.set_title(f'SVGs')
+    plt.tight_layout()
+
+def get_colors(adata):
+    hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+    np.random.seed(len(adata))
+    np.random.shuffle(hexcodes)
+    return hexcodes
+
+
+def chrysalis_svg(adata, min_spots=0.1, top_svg=1000, min_morans=0.20):
+    assert 0 < min_spots < 1
+    assert -1 < min_morans < 1
+
+    sc.settings.verbosity = 0
+    ad = sc.pp.filter_genes(adata, min_cells=int(len(adata) * min_spots), copy=True)
+    ad.var_names_make_unique()  # moran dies so need some check later
+    if "log1p" not in adata.uns_keys():
+        sc.pp.normalize_total(ad, inplace=True)
+        sc.pp.log1p(ad)
+
+    gene_matrix = ad.to_df()
+
+    points = adata.obsm['spatial'].copy()
+    points[:, 1] = points[:, 1] * -1
+
+    w = weights.KNN.from_array(points, k=6)
+    w.transform = 'R'
+
+    moran_dict = {}
+    # geary_dict = {}
+
+    for c in tqdm(ad.var_names, desc='Calculating SVGs'):
+        moran = esda.moran.Moran(gene_matrix[c], w, permutations=0)
+        moran_dict[c] = moran.I
+        # geary = esda.geary.Geary(gene_matrix[c], w, permutations=0)
+        # geary_dict[c] = geary.C
+
+    moran_df = pd.DataFrame(data=moran_dict.values(), index=moran_dict.keys(), columns=["Moran's I"])
+    moran_df = moran_df.sort_values(ascending=False, by="Moran's I")
+    adata.var["Moran's I"] = moran_df["Moran's I"]
+
+    # geary_df = pd.DataFrame(data=geary_dict.values(), index=geary_dict.keys(), columns=["Geary's C"])
+    # geary_df = geary_df.sort_values(ascending=False, by="Geary's C")
+    # adata.var["Geary's C"] = geary_df["Geary's C"]
+
+    # select thresholds to choose from
+    if len(moran_df[:top_svg]) < len(moran_df[moran_df["Moran's I"] > min_morans]):
+        adata.var['spatially_variable'] = [True if x in moran_df[:top_svg].index else False for x in adata.var_names]
+    else:
+        moran_df = moran_df[moran_df["Moran's I"] > min_morans]
+        adata.var['spatially_variable'] = [True if x in moran_df.index else False for x in adata.var_names]
+
+
+def chrysalis_pca(adata, n_pcs=50):
+    pcs = np.asarray(adata[:, adata.var['spatially_variable'] == True].X.todense())
+    pca = PCA(n_components=n_pcs, svd_solver='arpack', random_state=42)
+    adata.obsm['chr_X_pca'] = pca.fit_transform(pcs)
+
+    if 'chr_pca' not in adata.uns.keys():
+        adata.uns['chr_pca'] = {'variance_ratio': pca.explained_variance_ratio_,
+                                'loadings': pca.components_,
+                                'features': list(adata[:, adata.var['spatially_variable'] == True].var_names)}
+    else:
+        adata.uns['chr_pca']['variance_ratio'] = pca.explained_variance_ratio_
+        adata.uns['chr_pca']['loadings'] = pca.components_
+        adata.uns['chr_pca']['features'] = list(adata[:, adata.var['spatially_variable'] == True].var_names)
+
+
+def chrysalis_aa(adata, n_archetypes=8, n_pcs=None):
+    if n_pcs is None:
+        pcs = n_archetypes-1
+    else:
+        pcs = n_pcs
+
+    model = arch.AA(n_archetypes=n_archetypes, n_init=3, max_iter=200, tol=0.001, random_state=42)
+    model.fit(adata.obsm['chr_X_pca'][:, :pcs])
+    adata.obsm[f'chr_aa'] = model.alphas_
+
+    # get the mean of the original feature matrix and add it to the multiplied archetypes with the PCA loading matrix
+    # aa_loadings = np.mean(pcs, axis=0) + np.dot(model.archetypes_.T, pca.components_[:n_archetypes, :])
+    aa_loadings = np.dot(model.archetypes_, adata.uns['chr_pca']['loadings'][:pcs, :])
+
+    if 'chr_aa' not in adata.uns.keys():
+        adata.uns['chr_aa'] = {'archetypes': model.archetypes_,
+                               'alphas': model.alphas_,
+                               'loadings': aa_loadings,}
+    else:
+        adata.uns['chr_aa']['archetypes'] = model.archetypes_
+        adata.uns['chr_aa']['alphas'] = model.alphas_
+        adata.uns['chr_aa']['loadings'] = aa_loadings
+
+
+def compartment_heatmap(adata, figsize=(5 , 7), reorder_comps=False):
+    # SVG weights for each compartment
+    df = pd.DataFrame(data=adata.uns['chr_aa']['loadings'], columns=adata.uns['chr_pca']['features'])
+    df = df.apply(lambda x: (x-x.mean())/ x.std(), axis=0)
+
+    z = linkage(df.T, method='ward')
+    order = leaves_list(z)
+    df = df.iloc[:, order]
+    if reorder_comps:
+        z = linkage(df, method='ward')
+        order = leaves_list(z)
+        df = df.iloc[order,: ]
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    sns.heatmap(df.T, ax=ax, cmap=sns.diverging_palette(45, 340, l=55, center="dark", as_cmap=True))
+    plt.tight_layout()
+
+
+def get_compartment_df(adata):
+    # SVG expression for each compartment
+    exp_array = np.asarray(adata[:, adata.var['spatially_variable'] == True].X.todense())
+    exp_array = np.mean(exp_array, axis=0)
+    exp_aa = adata.uns['chr_aa']['loadings'] + exp_array
+    df = pd.DataFrame(data=exp_aa, columns=adata.uns['chr_pca']['features'],
+                      index=[f'compartment_{x}' for x in (range(len(exp_aa)))]).T
+    return df
