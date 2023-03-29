@@ -454,10 +454,28 @@ def chrysalis_aa(adata, n_archetypes=8, n_pcs=None):
         adata.uns['chr_aa']['loadings'] = aa_loadings
 
 
-def compartment_heatmap(adata, figsize=(5 , 7), reorder_comps=False):
+def compartment_heatmap(adata, figsize=(5 , 7), reorder_comps=False, hexcodes=None, seed=None,):
+
     # SVG weights for each compartment
     df = pd.DataFrame(data=adata.uns['chr_aa']['loadings'], columns=adata.uns['chr_pca']['features'])
     df = df.apply(lambda x: (x-x.mean())/ x.std(), axis=0)
+
+    dim = df.shape[0]
+
+    # define compartment colors
+    # default colormap with 8 colors
+    if hexcodes is None:
+        if dim > 8:
+            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5)
+        else:
+            hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+            if seed is None:
+                np.random.seed(len(adata))
+            else:
+                np.random.seed(seed)
+            np.random.shuffle(hexcodes)
+    else:
+        assert len(hexcodes) >= dim
 
     z = linkage(df.T, method='ward')
     order = leaves_list(z)
@@ -466,9 +484,14 @@ def compartment_heatmap(adata, figsize=(5 , 7), reorder_comps=False):
         z = linkage(df, method='ward')
         order = leaves_list(z)
         df = df.iloc[order,: ]
+        hexcodes =  [hexcodes[i] for i in order]
 
     fig, ax = plt.subplots(1, 1, figsize=figsize)
     sns.heatmap(df.T, ax=ax, cmap=sns.diverging_palette(45, 340, l=55, center="dark", as_cmap=True))
+
+    for idx, t in enumerate(ax.get_xticklabels()):
+        t.set_bbox(dict(facecolor=hexcodes[idx], alpha=1, edgecolor='none', boxstyle='round'))
+
     plt.tight_layout()
 
 
