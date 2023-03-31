@@ -1,3 +1,4 @@
+import math
 import colorsys
 import numpy as np
 import pandas as pd
@@ -11,7 +12,9 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from sklearn.decomposition import PCA
 from scipy.spatial.distance import cdist
+from matplotlib.colors import rgb_to_hsv
 from scipy.cluster.hierarchy import linkage, leaves_list
+from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 
 
 def morans_i(w_orig, y):
@@ -336,7 +339,7 @@ def plot_explained_variance(adata):
 
     n_svg = adata.var['spatially_variable'].value_counts()[True]
 
-    fig, ax = plt.subplots(1, 1, figsize=(4, 3))
+    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
     sns.lineplot(pca_df, markers=True, legend=True, ax=ax, palette=['#8b33ff'])
     ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
     ax.set_yticklabels(['{:,.0%}'.format(x) for x in ax.get_yticks()])
@@ -454,7 +457,7 @@ def chrysalis_aa(adata, n_archetypes=8, n_pcs=None):
         adata.uns['chr_aa']['loadings'] = aa_loadings
 
 
-def compartment_heatmap(adata, figsize=(5 , 7), reorder_comps=False, hexcodes=None, seed=None,):
+def compartment_heatmap(adata, figsize=(5 , 7), reorder_comps=False, hexcodes=None, seed=None):
 
     # SVG weights for each compartment
     df = pd.DataFrame(data=adata.uns['chr_aa']['loadings'], columns=adata.uns['chr_pca']['features'])
@@ -495,11 +498,94 @@ def compartment_heatmap(adata, figsize=(5 , 7), reorder_comps=False, hexcodes=No
     plt.tight_layout()
 
 
-def get_compartment_df(adata):
+def get_compartment_df(adata, weights=True):
+    # todo: these are based on a single capture spot, calculate average of multiple?
     # SVG expression for each compartment
     exp_array = np.asarray(adata[:, adata.var['spatially_variable'] == True].X.todense())
     exp_array = np.mean(exp_array, axis=0)
-    exp_aa = adata.uns['chr_aa']['loadings'] + exp_array
+    exp_aa = adata.uns['chr_aa']['loadings']
+    if not weights:
+        exp_aa += exp_array
+
     df = pd.DataFrame(data=exp_aa, columns=adata.uns['chr_pca']['features'],
                       index=[f'compartment_{x}' for x in (range(len(exp_aa)))]).T
     return df
+
+
+def plot_weights(adata, hexcodes=None, seed=None):
+
+    expression_df = get_compartment_df(adata)
+    dim = expression_df.shape[1]
+    # define compartment colors
+    # default colormap with 8 colors
+    if hexcodes is None:
+        if dim > 8:
+            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5)
+        else:
+            hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+            if seed is None:
+                np.random.seed(len(adata))
+            else:
+                np.random.seed(seed)
+            np.random.shuffle(hexcodes)
+    else:
+        assert len(hexcodes) >= dim
+
+    n_comp = expression_df.shape[1]
+    n_col = 4
+    n_row = math.ceil(n_comp / n_col)
+
+    fig, ax = plt.subplots(n_row, n_col, figsize=(3 * n_col, 4 * n_row))
+    ax = ax.flatten()
+    for a in ax:
+        a.axis('off')
+    for idx, c in enumerate(expression_df.columns):
+        sl = expression_df[[c]].sort_values(ascending=False, by=c)[:20]
+        ax[idx].axis('on')
+        ax[idx].grid(axis='x', linestyle='-', linewidth='0.5', color='grey')
+        ax[idx].set_axisbelow(True)
+        ax[idx].axvline(0, color='black')
+        ax[idx].barh(list(sl.index)[::-1], list(sl[c].values)[::-1], color=hexcodes[idx])
+        ax[idx].set_xlabel('Weight')
+        ax[idx].set_title(f'Compartment {idx}')
+    plt.tight_layout()
+
+
+def color_similarity_nh(adata, nh=6, mode='cos_sim'):
+    scale = adata.uns['spatial'][list(adata.uns['spatial'].keys())[0]]['scalefactors']['tissue_hires_scalef']
+    spot_diam = adata.uns['spatial'][list(adata.uns['spatial'].keys())[0]]['scalefactors']['spot_diameter_fullres']
+    spot_diam = int(spot_diam * scale)
+
+    hires = adata.uns['spatial'][list(adata.uns['spatial'].keys())[0]]['images']['hires']
+
+    points = adata.obsm['spatial'].copy() * scale
+    points = points.astype(int)
+    w = weights.KNN.from_array(points, k=nh)
+
+    r = int(spot_diam / 2)
+    patch_array = np.empty((len(points), (r * 2) ** 2 * 3))
+    for idx, point in enumerate(points):
+        patch = hires[point[1] - r:point[1] + r, point[0] - r:point[0] + r]
+        patch = rgb_to_hsv(patch)
+        patch = patch.flatten()
+        patch_array[idx] = patch
+
+    arr = np.empty((len(points), 1))
+    for k, v in w.neighbors.items():
+        nh_patch = []
+        for p in v:
+            patch = hires[points[p, 1] - r:points[p, 1]  + r, points[p, 0] - r:points[p, 0] + r]
+            patch = rgb_to_hsv(patch)
+            patch = patch.flatten()
+            nh_patch.append(patch)
+        nh_patch = np.array(nh_patch)
+        if mode == 'cos_sim':
+            metric = cosine_similarity(patch.reshape(1, -1), nh_patch)
+        elif mode == 'euc_dist':
+            metric = euclidean_distances(patch.reshape(1, -1), nh_patch)
+        else:
+            raise Exception("Mode must be 'euc_dist' or 'cos_sim'.")
+        arr[k] = np.mean(metric)
+    # arr = arr.flatten()
+    arr = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
+    return arr
