@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from sklearn.decomposition import PCA
 from scipy.spatial.distance import cdist
-from matplotlib.colors import rgb_to_hsv
 from scipy.cluster.hierarchy import linkage, leaves_list
 from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
+from skimage.color import rgb2lab, deltaE_ciede2000
 
 
 def morans_i(w_orig, y):
@@ -189,17 +189,19 @@ def chrysalis_calculate(adata, min_spots=0.1, top_svg=1000, min_morans=0.05, n_a
 
     # get the mean of the original feature matrix and add it to the multiplied archetypes with the PCA loading matrix
     # aa_loadings = np.mean(pcs, axis=0) + np.dot(model.archetypes_.T, pca.components_[:n_archetypes, :])
-    aa_loadings = np.dot(adata.uns['chr_aa']['archetypes'], adata.uns['chr_pca']['loadings'][:n_archetypes-1, :])
+    aa_loadings = np.dot(model.archetypes_, adata.uns['chr_pca']['loadings'][:n_archetypes-1, :])
 
     if 'chr_aa' not in adata.uns.keys():
         adata.uns['chr_aa'] = {'archetypes': model.archetypes_,
-                               'alphas': model.alphas_}
+                               'alphas': model.alphas_,
+                               'loadings': aa_loadings,}
     else:
         adata.uns['chr_aa']['archetypes'] = model.archetypes_
+        adata.uns['chr_aa']['alphas'] = model.alphas_
         adata.uns['chr_aa']['loadings'] = aa_loadings
 
 
-def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa'):
+def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa', sample_id=None):
     """
     Visualizes embeddings calculated with chrysalis.calculate.
     :param adata: 10X Visium anndata matrix created with scanpy.
@@ -255,6 +257,10 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa'):
         for cmap in cmaps[2:]:
             cblend = mip_colors(cblend, cmap,)
             i += 1
+    adata.obs['cmap'] = cblend
+
+    if sample_id is not None:
+        adata = adata[adata.obs['sample'] == sample_id]
 
     # plot
     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -273,11 +279,11 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa'):
     ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
     size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
     size = size_const ** 2 * 1.05
-    plt.scatter(row, col, s=size, marker="h", c=cblend)
+    plt.scatter(row, col, s=size, marker="h", c=list(adata.obs['cmap']))
 
 
 def plot_component(adata, fig, ax, selected_dim, dim=8, hexcodes=None, seed=None, mode='aa', color_first='black',
-                   spot_size=1.05):
+                   sample_id=None, spot_size=1.05):
 
     # todo: have a loot at spot_size, still not exactly proportional to the physical size of the plot
 
@@ -312,6 +318,11 @@ def plot_component(adata, fig, ax, selected_dim, dim=8, hexcodes=None, seed=None
             cmaps.append(pc_rgb)
     else:
         raise Exception
+
+    adata.obsm['cmap'] = cmaps[selected_dim]
+    if sample_id is not None:
+        adata = adata[adata.obs['sample'] == sample_id]
+
     # plot
     # fig, ax = plt.subplots(1, 1, figsize=(5, 5))
     ax.axis('off')
@@ -329,7 +340,7 @@ def plot_component(adata, fig, ax, selected_dim, dim=8, hexcodes=None, seed=None
     ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
     size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
     size = size_const ** 2 * spot_size
-    ax.scatter(row, col, s=size, marker="h", c=cmaps[selected_dim])
+    ax.scatter(row, col, s=size, marker="h", c=adata.obsm['cmap'])
 
 
 def plot_explained_variance(adata):
@@ -542,10 +553,14 @@ def plot_weights(adata, hexcodes=None, seed=None):
     for idx, c in enumerate(expression_df.columns):
         sl = expression_df[[c]].sort_values(ascending=False, by=c)[:20]
         ax[idx].axis('on')
+        # ax[idx].set_facecolor('#f2f2f2')
+        ax[idx].spines['top'].set_visible(False)
+        ax[idx].spines['right'].set_visible(False)
         ax[idx].grid(axis='x', linestyle='-', linewidth='0.5', color='grey')
         ax[idx].set_axisbelow(True)
         ax[idx].axvline(0, color='black')
         ax[idx].barh(list(sl.index)[::-1], list(sl[c].values)[::-1], color=hexcodes[idx])
+        ax[idx].scatter(y=list(sl.index)[::-1], x=list(sl[c].values)[::-1], color='black', s=15)
         ax[idx].set_xlabel('Weight')
         ax[idx].set_title(f'Compartment {idx}')
     plt.tight_layout()
@@ -558,34 +573,53 @@ def color_similarity_nh(adata, nh=6, mode='cos_sim'):
 
     hires = adata.uns['spatial'][list(adata.uns['spatial'].keys())[0]]['images']['hires']
 
+    # get KNNs
     points = adata.obsm['spatial'].copy() * scale
     points = points.astype(int)
     w = weights.KNN.from_array(points, k=nh)
 
+    # extract spots
     r = int(spot_diam / 2)
-    patch_array = np.empty((len(points), (r * 2) ** 2 * 3))
+    patch_array = np.empty((len(points), r * 2, r * 2, 3))
     for idx, point in enumerate(points):
-        patch = hires[point[1] - r:point[1] + r, point[0] - r:point[0] + r]
-        patch = rgb_to_hsv(patch)
-        patch = patch.flatten()
-        patch_array[idx] = patch
+        p = hires[point[1] - r:point[1] + r, point[0] - r:point[0] + r]
+        p = rgb2lab(p)
+        # p = p.flatten()
+        patch_array[idx] = p
 
     arr = np.empty((len(points), 1))
+
     for k, v in w.neighbors.items():
+        patch = patch_array[k]
         nh_patch = []
         for p in v:
-            patch = hires[points[p, 1] - r:points[p, 1]  + r, points[p, 0] - r:points[p, 0] + r]
-            patch = rgb_to_hsv(patch)
-            patch = patch.flatten()
-            nh_patch.append(patch)
+            npatch = hires[points[p, 1] - r:points[p, 1] + r, points[p, 0] - r:points[p, 0] + r]
+            npatch = rgb2lab(npatch)
+            # npatch = npatch.flatten()
+            nh_patch.append(npatch)
+
         nh_patch = np.array(nh_patch)
+
         if mode == 'cos_sim':
-            metric = cosine_similarity(patch.reshape(1, -1), nh_patch)
-        elif mode == 'euc_dist':
-            metric = euclidean_distances(patch.reshape(1, -1), nh_patch)
+
+            mean_es = []
+            for i in range(nh):
+                e_arr = cosine_similarity(patch.reshape(1, -1), nh_patch[i].reshape(1, -1))
+                mean_es.append(e_arr)
+            metric = np.mean(mean_es)
+
+        elif mode == 'delta_e':
+
+            mean_es = []
+            for i in range(nh):
+                e_arr = deltaE_ciede2000(patch, nh_patch[i])
+                mean_es.append(np.mean(e_arr))
+            metric = np.mean(mean_es)
         else:
-            raise Exception("Mode must be 'euc_dist' or 'cos_sim'.")
+            raise Exception("Mode must be 'delta_e' or 'cos_sim'.")
+
         arr[k] = np.mean(metric)
+
     # arr = arr.flatten()
-    arr = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
+    # arr = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
     return arr
