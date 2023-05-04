@@ -1,4 +1,5 @@
 import math
+import anndata
 import colorsys
 import numpy as np
 import pandas as pd
@@ -19,7 +20,6 @@ from skimage.color import rgb2lab, deltaE_ciede2000
 
 def morans_i(w_orig, y):
     # REF: https://github.com/yatshunlee/spatial_autocorrelation/blob/main/spatial_autocorrelation/moransI.py modified
-    # wth some ChatGPT magic to remove the for loops
 
     if not isinstance(y, np.ndarray):
         raise TypeError("Passed array (feature) should be in numpy array (ndim = 1)")
@@ -64,10 +64,10 @@ def hls_to_hex(h, l, s):
     return hex_code
 
 
-def generate_random_colors(num_colors, hue_range=(0, 1), saturation=0.5, lightness=0.5, min_distance=0.05):
+def generate_random_colors(num_colors, hue_range=(0, 1), saturation=0.5, lightness=0.5, min_distance=0.05, seed=42):
     colors = []
     hue_list = []
-    np.random.seed(42)
+    np.random.seed(seed)
     while len(colors) < num_colors:
         # generate a random hue value within the specified range
         hue = np.random.uniform(hue_range[0], hue_range[1])
@@ -201,7 +201,7 @@ def chrysalis_calculate(adata, min_spots=0.1, top_svg=1000, min_morans=0.05, n_a
         adata.uns['chr_aa']['loadings'] = aa_loadings
 
 
-def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa', sample_id=None):
+def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa', sample_id=None, spot_size=1.05, marker='h'):
     """
     Visualizes embeddings calculated with chrysalis.calculate.
     :param adata: 10X Visium anndata matrix created with scanpy.
@@ -257,7 +257,6 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa', sample_id=
         for cmap in cmaps[2:]:
             cblend = mip_colors(cblend, cmap,)
             i += 1
-    adata.obs['cmap'] = cblend
 
     if sample_id is not None:
         adata = adata[adata.obs['sample'] == sample_id]
@@ -267,36 +266,48 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa', sample_id=
     ax.axis('off')
     row = adata.obsm['spatial'][:, 0]
     col = adata.obsm['spatial'][:, 1] * -1
-    ax.set_xlim((np.min(row) * 0.9, np.max(row) * 1.1))
-    ax.set_ylim((np.min(col) * 1.1, np.max(col) * 0.9))
+    row_range = np.ptp(row)
+    col_range = np.ptp(col)
+    ax.set_xlim((np.min(row) - 0.1 * row_range, np.max(row) + 0.1 * row_range))
+    ax.set_ylim((np.min(col) - 0.1 * col_range, np.max(col) + 0.1 * col_range))
     ax.set_aspect('equal')
 
-    distances = cdist(np.column_stack((row, col)), np.column_stack((row, col)))
+    # takes long time to compute the pairwise distance matrix for stereo-seq or slide-seq samples, so by looking at
+    # only 5000 spots is a good enough approximation
+    if len(row) < 5000:
+        distances = cdist(np.column_stack((row, col)), np.column_stack((row, col)))
+    else:
+        distances = cdist(np.column_stack((row[:5000], col[:5000])), np.column_stack((row[:5000], col[:5000])))
+
     np.fill_diagonal(distances, np.inf)
     min_distance = np.min(distances)
 
     # get the physical length of the x and y axes
     ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
     size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
-    size = size_const ** 2 * 1.05
-    plt.scatter(row, col, s=size, marker="h", c=list(adata.obs['cmap']))
+    size = size_const ** 2 * spot_size
+    plt.scatter(row, col, s=size, marker=marker, c=cblend)
 
 
 def plot_component(adata, fig, ax, selected_dim, dim=8, hexcodes=None, seed=None, mode='aa', color_first='black',
                    sample_id=None, spot_size=1.05):
 
-    # todo: have a loot at spot_size, still not exactly proportional to the physical size of the plot
+    # todo: have a look at spot_size, still not exactly proportional to the physical size of the plot
 
     # define PC colors
     if hexcodes is None:
-        hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
-        if seed is None:
-            np.random.seed(len(adata))
+        if dim > 8:
+            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5)
         else:
-            np.random.seed(seed)
-        np.random.shuffle(hexcodes)
+            hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+            if seed is None:
+                np.random.seed(len(adata))
+            else:
+                np.random.seed(seed)
+            np.random.shuffle(hexcodes)
     else:
         assert len(hexcodes) >= dim
+
     # define colormaps
     cmaps = []
     if mode == 'aa':
@@ -328,11 +339,19 @@ def plot_component(adata, fig, ax, selected_dim, dim=8, hexcodes=None, seed=None
     ax.axis('off')
     row = adata.obsm['spatial'][:, 0]
     col = adata.obsm['spatial'][:, 1] * -1
-    ax.set_xlim((np.min(row) * 0.9, np.max(row) * 1.1))
-    ax.set_ylim((np.min(col) * 1.1, np.max(col) * 0.9))
+    row_range = np.ptp(row)
+    col_range = np.ptp(col)
+    ax.set_xlim((np.min(row) - 0.1 * row_range, np.max(row) + 0.1 * row_range))
+    ax.set_ylim((np.min(col) - 0.1 * col_range, np.max(col) + 0.1 * col_range))
     ax.set_aspect('equal')
 
-    distances = cdist(np.column_stack((row, col)), np.column_stack((row, col)))
+    # takes long time to compute the pairwise distance matrix for stereo-seq or slide-seq samples, so by looking at
+    # only 5000 spots is a good enough approximation
+    if len(row) < 5000:
+        distances = cdist(np.column_stack((row, col)), np.column_stack((row, col)))
+    else:
+        distances = cdist(np.column_stack((row[:5000], col[:5000])), np.column_stack((row[:5000], col[:5000])))
+
     np.fill_diagonal(distances, np.inf)
     min_distance = np.min(distances)
 
@@ -341,6 +360,28 @@ def plot_component(adata, fig, ax, selected_dim, dim=8, hexcodes=None, seed=None
     size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
     size = size_const ** 2 * spot_size
     ax.scatter(row, col, s=size, marker="h", c=adata.obsm['cmap'])
+
+
+def show_compartments(adata, ncols=2, sample_id=None, spot_size=0.85):
+
+    ndims = adata.obsm['chr_aa'].shape[1]
+    assert ndims / ncols >= 1
+    nrows = math.ceil(ndims / ncols)
+
+    if 'sample' in adata.obs.columns and sample_id is None:
+        if sample_id not in adata.obs['sample'].cat.categories:
+            raise ValueError("Invalid sample_id. Check categories in .obs['sample']")
+        raise ValueError("Integrated dataset. Cannot proceed without a specified sample_id")
+
+    fig, axs = plt.subplots(nrows, ncols, figsize=(ncols * 3, nrows * 3))
+    axs = axs.flatten()
+    for a in axs:
+        a.axis('off')
+    plt.subplots_adjust(hspace=0.05, wspace=0.01, left=0.05, right=0.95, top=0.95, bottom=0.05)
+    for i in range(ndims):
+        plot_component(adata, fig, axs[i], dim=ndims, selected_dim=i, color_first='#2e2e2e', spot_size=spot_size,
+                       sample_id=sample_id)
+        axs[i].set_title(f'Compartment {i}', size=10)
 
 
 def plot_explained_variance(adata):
@@ -377,6 +418,7 @@ def plot_svgs(adata):
     ax.set_xlabel('Gene #')
     ax.set_title(f'SVGs')
     plt.tight_layout()
+
 
 def get_colors(adata):
     hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
@@ -523,7 +565,7 @@ def get_compartment_df(adata, weights=True):
     return df
 
 
-def plot_weights(adata, hexcodes=None, seed=None):
+def plot_weights(adata, hexcodes=None, seed=None, compartments=None, ncols=4):
 
     expression_df = get_compartment_df(adata)
     dim = expression_df.shape[1]
@@ -542,8 +584,14 @@ def plot_weights(adata, hexcodes=None, seed=None):
     else:
         assert len(hexcodes) >= dim
 
+    if type(compartments) == list:
+        assert all(isinstance(item, int) for item in compartments)
+        compartments = [f'compartment_{x}' for x in compartments]
+        assert all([True if x in expression_df.columns else False for x in compartments])
+        expression_df = expression_df[compartments]
+
     n_comp = expression_df.shape[1]
-    n_col = 4
+    n_col = ncols
     n_row = math.ceil(n_comp / n_col)
 
     fig, ax = plt.subplots(n_row, n_col, figsize=(3 * n_col, 4 * n_row))
@@ -551,6 +599,7 @@ def plot_weights(adata, hexcodes=None, seed=None):
     for a in ax:
         a.axis('off')
     for idx, c in enumerate(expression_df.columns):
+        cnum = int(c.split('_')[-1])
         sl = expression_df[[c]].sort_values(ascending=False, by=c)[:20]
         ax[idx].axis('on')
         # ax[idx].set_facecolor('#f2f2f2')
@@ -559,10 +608,10 @@ def plot_weights(adata, hexcodes=None, seed=None):
         ax[idx].grid(axis='x', linestyle='-', linewidth='0.5', color='grey')
         ax[idx].set_axisbelow(True)
         ax[idx].axvline(0, color='black')
-        ax[idx].barh(list(sl.index)[::-1], list(sl[c].values)[::-1], color=hexcodes[idx])
+        ax[idx].barh(list(sl.index)[::-1], list(sl[c].values)[::-1], color=hexcodes[cnum])
         ax[idx].scatter(y=list(sl.index)[::-1], x=list(sl[c].values)[::-1], color='black', s=15)
         ax[idx].set_xlabel('Weight')
-        ax[idx].set_title(f'Compartment {idx}')
+        ax[idx].set_title(f'Compartment {cnum}')
     plt.tight_layout()
 
 
@@ -623,3 +672,36 @@ def color_similarity_nh(adata, nh=6, mode='cos_sim'):
     # arr = arr.flatten()
     # arr = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
     return arr
+
+
+def integrate_adatas(adatas, sample_names=None, **kwargs):
+
+    if sample_names is None:
+        sample_names = np.arange(len(adatas))
+    assert len(adatas) == len(sample_names)
+
+    adatas_dict = {}
+    for ad, name in zip(adatas, sample_names):
+        ad.obs['sample'] = name
+        if 'gene_ids' in ad.var.columns:
+            ad.var['gene_symbols'] = ad.var_names
+            ad.var_names = ad.var['gene_ids']
+
+        chrysalis_svg(ad, **kwargs)
+
+        ad.var[f'spatially_variable_{name}'] = ad.var['spatially_variable']
+        ad.var[f"Moran's I_{name}"] = ad.var["Moran's I"]
+
+        adatas_dict[name] = ad
+
+    # concat samples
+    adata = anndata.concat(adatas_dict, index_unique='-', uns_merge='unique', merge='unique')
+    adata.obs['sample'] = adata.obs['sample'].astype('category')
+    # get SVGs for all samples
+    svg_columns = [c for c in adata.var.columns if 'spatially_variable' in c]
+    svg_list = [list(adata.var[c][adata.var[c] == True].index) for c in svg_columns]
+    # union of SVGs
+    spatially_variable = list(set().union(*svg_list))
+    adata.var['spatially_variable'] = [True if x in spatially_variable else False for x in adata.var_names]
+
+    return adata
