@@ -2,7 +2,7 @@
    <img src="misc/logo.svg" width="300">
 </p>
 
-**chrysalis** is a visualization tool that generates neat and meaningful visual representations of spatial transcriptomics datasets. It achieves this by leveraging PCA, archetypal analysis and spatially variable gene detection. Moreover, it seamlessly integrates into `scanpy` based pipelines.
+**chrysalis** is a spatial domain detection and visualization tool that generates neat and meaningful visual representations of spatial transcriptomics datasets. It achieves this by leveraging PCA, archetypal analysis and spatially variable gene detection. Moreover, it seamlessly integrates into `scanpy` based pipelines.
 
 <p align="center">
    <img src="misc/demo.png" width="781">
@@ -14,7 +14,7 @@ By combining PCA with AA, **chrysalis** can define distinct tissue compartments 
 </p>
 
 ## Package
-**chrysalis** can be used with any preexisting `anndata` snapshot of 10X Visium datasets generated with `scanpy`, and on new samples without the need of preprocessing. It is designed to be as lightweight as possible, however currently it relies on `libpysal` for its fast implementation of Moran's I.
+**chrysalis** can be used with any pre-existing `anndata` snapshot of 10X Visium, Slide-seqV2 and Stereo-seq datasets generated with `scanpy`, and on new samples without the need of preprocessing. It is designed to be as lightweight as possible, however currently it relies on `libpysal` for its fast implementation of Moran's I.
 
 **chrysalis** requires the following packages:
 - numpy
@@ -29,7 +29,7 @@ By combining PCA with AA, **chrysalis** can define distinct tissue compartments 
 
 To install **chrysalis**:
 ```terminal
-pip install --index-url=https://test.pypi.org/simple/ --extra-index-url=https://pypi.org/simple/ chrysalis==1.3b0
+pip install --index-url=https://test.pypi.org/simple/ --extra-index-url=https://pypi.org/simple/ chrysalis==1.4b0
 ```
 If `rvlib` fails to install, you can try installing it with conda:
 ```terminal
@@ -37,6 +37,8 @@ conda install -c conda-forge rvlib
 ```
 
 ## Usage
+
+**UPDATE**: Please refer to `lymph_node_demo.ipynb` for the updated funcionality.
 
 ```python
 import scanpy as sc
