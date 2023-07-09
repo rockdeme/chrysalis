@@ -9,6 +9,7 @@ from tqdm import tqdm
 import archetypes as arch
 from pysal.lib import weights
 from pysal.explore import esda
+from scipy.stats import entropy
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from sklearn.decomposition import PCA
@@ -64,10 +65,13 @@ def hls_to_hex(h, l, s):
     return hex_code
 
 
-def generate_random_colors(num_colors, hue_range=(0, 1), saturation=0.5, lightness=0.5, min_distance=0.05, seed=42):
+def generate_random_colors(num_colors, hue_range=(0, 1), saturation=0.5, lightness=0.5, min_distance=0.05, seed=None):
     colors = []
     hue_list = []
-    np.random.seed(seed)
+    if seed:
+        np.random.seed(seed)
+    else:
+        np.random.seed(42)
     while len(colors) < num_colors:
         # generate a random hue value within the specified range
         hue = np.random.uniform(hue_range[0], hue_range[1])
@@ -201,7 +205,8 @@ def chrysalis_calculate(adata, min_spots=0.1, top_svg=1000, min_morans=0.05, n_a
         adata.uns['chr_aa']['loadings'] = aa_loadings
 
 
-def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa', sample_id=None, spot_size=1.05, marker='h'):
+def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa', sample_id=None, spot_size=1.05, marker='h',
+                   figsize=(5, 5), **scr_kw):
     """
     Visualizes embeddings calculated with chrysalis.calculate.
     :param adata: 10X Visium anndata matrix created with scanpy.
@@ -216,7 +221,7 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa', sample_id=
     # default colormap with 8 colors
     if hexcodes is None:
         if dim > 8:
-            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5)
+            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5, seed=seed)
         else:
             hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
             if seed is None:
@@ -258,11 +263,17 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa', sample_id=
             cblend = mip_colors(cblend, cmap,)
             i += 1
 
+    if 'sample' in adata.obs.columns and sample_id is None:
+        if sample_id not in adata.obs['sample'].cat.categories:
+            raise ValueError("Invalid sample_id. Check categories in .obs['sample']")
+        raise ValueError("Integrated dataset. Cannot proceed without a specified sample_id")
+
     if sample_id is not None:
+        cblend = [x for x, b in zip(cblend, list(adata.obs['sample'] == sample_id)) if b == True]
         adata = adata[adata.obs['sample'] == sample_id]
 
     # plot
-    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
     ax.axis('off')
     row = adata.obsm['spatial'][:, 0]
     col = adata.obsm['spatial'][:, 1] * -1
@@ -286,18 +297,18 @@ def chrysalis_plot(adata, dim=8, hexcodes=None, seed=None, mode='aa', sample_id=
     ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
     size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
     size = size_const ** 2 * spot_size
-    plt.scatter(row, col, s=size, marker=marker, c=cblend)
+    plt.scatter(row, col, s=size, marker=marker, c=cblend, **scr_kw)
 
 
 def plot_component(adata, fig, ax, selected_dim, dim=8, hexcodes=None, seed=None, mode='aa', color_first='black',
-                   sample_id=None, spot_size=1.05):
+                   sample_id=None, spot_size=1.05, marker="h", **scr_kw):
 
     # todo: have a look at spot_size, still not exactly proportional to the physical size of the plot
 
     # define PC colors
     if hexcodes is None:
         if dim > 8:
-            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5)
+            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5, seed=seed)
         else:
             hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
             if seed is None:
@@ -359,10 +370,11 @@ def plot_component(adata, fig, ax, selected_dim, dim=8, hexcodes=None, seed=None
     ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
     size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
     size = size_const ** 2 * spot_size
-    ax.scatter(row, col, s=size, marker="h", c=adata.obsm['cmap'])
+    ax.scatter(row, col, s=size, marker=marker, c=adata.obsm['cmap'], **scr_kw)
 
 
-def show_compartments(adata, ncols=2, sample_id=None, spot_size=0.85):
+def show_compartments(adata, ncols=2, size=3, sample_id=None, spot_size=0.85, hexcodes=None, title_size=10, seed=None,
+                      marker="h", **scr_kw):
 
     ndims = adata.obsm['chr_aa'].shape[1]
     assert ndims / ncols >= 1
@@ -373,15 +385,15 @@ def show_compartments(adata, ncols=2, sample_id=None, spot_size=0.85):
             raise ValueError("Invalid sample_id. Check categories in .obs['sample']")
         raise ValueError("Integrated dataset. Cannot proceed without a specified sample_id")
 
-    fig, axs = plt.subplots(nrows, ncols, figsize=(ncols * 3, nrows * 3))
+    fig, axs = plt.subplots(nrows, ncols, figsize=(ncols * size, nrows * size))
     axs = axs.flatten()
     for a in axs:
         a.axis('off')
     plt.subplots_adjust(hspace=0.05, wspace=0.01, left=0.05, right=0.95, top=0.95, bottom=0.05)
     for i in range(ndims):
         plot_component(adata, fig, axs[i], dim=ndims, selected_dim=i, color_first='#2e2e2e', spot_size=spot_size,
-                       sample_id=sample_id)
-        axs[i].set_title(f'Compartment {i}', size=10)
+                       sample_id=sample_id, hexcodes=hexcodes, seed=seed, marker=marker, **scr_kw)
+        axs[i].set_title(f'Compartment {i}', size=title_size)
 
 
 def plot_explained_variance(adata):
@@ -420,16 +432,21 @@ def plot_svgs(adata):
     plt.tight_layout()
 
 
-def get_colors(adata):
-    hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
-    np.random.seed(len(adata))
-    np.random.shuffle(hexcodes)
+def get_colors(adata, dim=8, seed=42):
+    if dim > 8:
+        hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5)
+    else:
+        hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+        if seed is None:
+            np.random.seed(len(adata))
+        else:
+            np.random.seed(seed)
+        np.random.shuffle(hexcodes)
     return hexcodes
 
 
-def chrysalis_svg(adata, min_spots=0.1, top_svg=1000, min_morans=0.20):
+def chrysalis_svg(adata, min_spots=0.1, top_svg=1000, min_morans=0.20, neighbors=6, geary=False):
     assert 0 < min_spots < 1
-    assert -1 < min_morans < 1
 
     sc.settings.verbosity = 0
     ad = sc.pp.filter_genes(adata, min_cells=int(len(adata) * min_spots), copy=True)
@@ -443,25 +460,28 @@ def chrysalis_svg(adata, min_spots=0.1, top_svg=1000, min_morans=0.20):
     points = adata.obsm['spatial'].copy()
     points[:, 1] = points[:, 1] * -1
 
-    w = weights.KNN.from_array(points, k=6)
+    w = weights.KNN.from_array(points, k=neighbors)
     w.transform = 'R'
 
     moran_dict = {}
-    # geary_dict = {}
+    if geary:
+        geary_dict = {}
 
     for c in tqdm(ad.var_names, desc='Calculating SVGs'):
         moran = esda.moran.Moran(gene_matrix[c], w, permutations=0)
         moran_dict[c] = moran.I
-        # geary = esda.geary.Geary(gene_matrix[c], w, permutations=0)
-        # geary_dict[c] = geary.C
+        if geary:
+            geary = esda.geary.Geary(gene_matrix[c], w, permutations=0)
+            geary_dict[c] = geary.C
 
     moran_df = pd.DataFrame(data=moran_dict.values(), index=moran_dict.keys(), columns=["Moran's I"])
     moran_df = moran_df.sort_values(ascending=False, by="Moran's I")
     adata.var["Moran's I"] = moran_df["Moran's I"]
 
-    # geary_df = pd.DataFrame(data=geary_dict.values(), index=geary_dict.keys(), columns=["Geary's C"])
-    # geary_df = geary_df.sort_values(ascending=False, by="Geary's C")
-    # adata.var["Geary's C"] = geary_df["Geary's C"]
+    if geary:
+        geary_df = pd.DataFrame(data=geary_dict.values(), index=geary_dict.keys(), columns=["Geary's C"])
+        geary_df = geary_df.sort_values(ascending=False, by="Geary's C")
+        adata.var["Geary's C"] = geary_df["Geary's C"]
 
     # select thresholds to choose from
     if len(moran_df[:top_svg]) < len(moran_df[moran_df["Moran's I"] > min_morans]):
@@ -472,6 +492,7 @@ def chrysalis_svg(adata, min_spots=0.1, top_svg=1000, min_morans=0.20):
 
 
 def chrysalis_pca(adata, n_pcs=50):
+    # todo: this only works with CSL matrix, need something to check if the matrix is dense
     pcs = np.asarray(adata[:, adata.var['spatially_variable'] == True].X.todense())
     pca = PCA(n_components=n_pcs, svd_solver='arpack', random_state=42)
     adata.obsm['chr_X_pca'] = pca.fit_transform(pcs)
@@ -487,6 +508,12 @@ def chrysalis_pca(adata, n_pcs=50):
 
 
 def chrysalis_aa(adata, n_archetypes=8, n_pcs=None):
+
+    if not isinstance(n_archetypes, int):
+        raise TypeError
+    if n_archetypes < 2:
+        raise ValueError(f"n_archetypes cannot be less than 2.")
+
     if n_pcs is None:
         pcs = n_archetypes-1
     else:
@@ -494,7 +521,7 @@ def chrysalis_aa(adata, n_archetypes=8, n_pcs=None):
 
     model = arch.AA(n_archetypes=n_archetypes, n_init=3, max_iter=200, tol=0.001, random_state=42)
     model.fit(adata.obsm['chr_X_pca'][:, :pcs])
-    adata.obsm[f'chr_aa'] = model.alphas_
+    adata.obsm['chr_aa'] = model.alphas_
 
     # get the mean of the original feature matrix and add it to the multiplied archetypes with the PCA loading matrix
     # aa_loadings = np.mean(pcs, axis=0) + np.dot(model.archetypes_.T, pca.components_[:n_archetypes, :])
@@ -503,14 +530,110 @@ def chrysalis_aa(adata, n_archetypes=8, n_pcs=None):
     if 'chr_aa' not in adata.uns.keys():
         adata.uns['chr_aa'] = {'archetypes': model.archetypes_,
                                'alphas': model.alphas_,
-                               'loadings': aa_loadings,}
+                               'loadings': aa_loadings,
+                               'RSS': model.rss_}
     else:
         adata.uns['chr_aa']['archetypes'] = model.archetypes_
         adata.uns['chr_aa']['alphas'] = model.alphas_
         adata.uns['chr_aa']['loadings'] = aa_loadings
+        adata.uns['chr_aa']['RSS'] = model.rss_
 
 
-def compartment_heatmap(adata, figsize=(5 , 7), reorder_comps=False, hexcodes=None, seed=None):
+def estimate_compartments(adata, n_pcs=20, range_archetypes=(3, 50), max_iter=10):
+
+    if 'chr_X_pca' not in adata.obsm.keys():
+        raise ValueError(".obsm['chr_X_pca'] cannot be found, run chrysalis_pca first.")
+
+    entropy_arr = np.zeros((len(range(range_archetypes[0], range_archetypes[1])), len(adata)))
+    rss_dict = {}
+    i = 0
+    for a in tqdm(range(range_archetypes[0], range_archetypes[1]), desc='Fitting models'):
+        model = arch.AA(n_archetypes=a, n_init=3, max_iter=max_iter, tol=0.001, random_state=42)
+        model.fit(adata.obsm['chr_X_pca'][:, :n_pcs])
+        rss_dict[a] = model.rss_
+
+        entropy_arr[i, :] = entropy(model.alphas_.T)
+        i += 1
+
+    adata.obsm['entropy'] = entropy_arr.T
+
+    if 'chr_aa' not in adata.uns.keys():
+        adata.uns['chr_aa'] = {'RSSs': rss_dict}
+    else:
+        adata.uns['chr_aa']['RSSs'] = rss_dict
+
+
+def plot_rss(adata, title=None):
+
+    if 'RSSs' not in adata.uns['chr_aa'].keys():
+        raise ValueError(".uns['chr_aa']['RSSs'] cannot be found, run estimate_compartments first.")
+
+    def find_elbow(x, y):
+        y = np.array(list(y))
+        x = np.array(list(x))
+        data = np.column_stack((x, y))
+
+        line_start = data[0]
+        line_end = data[-1]
+
+        line_vec = line_end - line_start
+        line_vec_norm = line_vec / np.sqrt(np.sum(line_vec ** 2))
+
+        # for each point find the distance to the line
+        vec_from_first = data - line_start
+        scalar_product = np.sum(vec_from_first * np.tile(line_vec_norm, (len(data), 1)), axis=1)
+        vec_from_first_parallel = np.outer(scalar_product, line_vec_norm)
+        vec_to_line = vec_from_first - vec_from_first_parallel
+        dist_to_line = np.sqrt(np.sum(vec_to_line ** 2, axis=1))
+        elbow_index = np.argmax(dist_to_line)
+        return elbow_index
+
+    ent_df = pd.DataFrame(data=adata.obsm['entropy'], columns=adata.uns['chr_aa']['RSSs'].keys())
+
+    ent_df = pd.melt(ent_df)
+    ent_df = ent_df.rename(columns={'variable': 'n_compartment', 'value': 'entropy'})
+    ent_df['normalized_entropy'] = ent_df['entropy'] / ent_df['n_compartment']
+
+    rss_df = pd.DataFrame(data=adata.uns['chr_aa']['RSSs'].values(),
+                          index=adata.uns['chr_aa']['RSSs'].keys())
+
+    elb_idx = find_elbow(adata.uns['chr_aa']['RSSs'].keys(),
+                         adata.uns['chr_aa']['RSSs'].values())
+    elb_aa = list(adata.uns['chr_aa']['RSSs'].keys())[elb_idx]
+
+    if 'chr_aa' not in adata.uns.keys():
+        adata.uns['chr_aa'] = {'RSS_opt': elb_aa}
+    else:
+        adata.uns['chr_aa']['RSS_opt'] = elb_aa
+
+    # plot
+    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
+    sns.lineplot(rss_df, markers=True, legend=False, ax=axs[0], palette=['#8b33ff'])
+    axs[0].plot(elb_aa, list(adata.uns['chr_aa']['RSSs'].values())[elb_idx], 'ro',
+                markeredgecolor='white', linewidth=3)
+    axs[0].tick_params(axis='x', rotation=45)
+    axs[0].set_ylabel('Residual sum of squares')
+    axs[0].set_xlabel('Compartments')
+    axs[0].set_title(f'RSS - Optimal component n: {int(elb_aa)}')
+    axs[0].grid(axis='both', linestyle='-', linewidth='0.5', color='grey')
+    axs[0].set_axisbelow(True)
+
+    sns.lineplot(data=ent_df, y='entropy', x='n_compartment', ax=axs[1], errorbar='se', color='#8b33ff')
+    axs[1].grid(axis='both', linestyle='-', linewidth='0.5', color='grey')
+    axs[1].set_axisbelow(True)
+    axs[1].set_ylabel("Normalized Entropy")
+    axs[1].set_xlabel('Compartments')
+    axs[1].set_title(f'Entropy changes')
+    axs[1].tick_params(axis='x', rotation=45)
+
+    if title:
+        plt.suptitle(title)
+
+    plt.tight_layout()
+
+
+
+def compartment_heatmap(adata, figsize=(5 , 7), reorder_comps=False, hexcodes=None, seed=None, **kwrgs):
 
     # SVG weights for each compartment
     df = pd.DataFrame(data=adata.uns['chr_aa']['loadings'], columns=adata.uns['chr_pca']['features'])
@@ -543,7 +666,7 @@ def compartment_heatmap(adata, figsize=(5 , 7), reorder_comps=False, hexcodes=No
         hexcodes =  [hexcodes[i] for i in order]
 
     fig, ax = plt.subplots(1, 1, figsize=figsize)
-    sns.heatmap(df.T, ax=ax, cmap=sns.diverging_palette(45, 340, l=55, center="dark", as_cmap=True))
+    sns.heatmap(df.T, ax=ax, cmap=sns.diverging_palette(45, 340, l=55, center="dark", as_cmap=True), **kwrgs)
 
     for idx, t in enumerate(ax.get_xticklabels()):
         t.set_bbox(dict(facecolor=hexcodes[idx], alpha=1, edgecolor='none', boxstyle='round'))
@@ -565,7 +688,7 @@ def get_compartment_df(adata, weights=True):
     return df
 
 
-def plot_weights(adata, hexcodes=None, seed=None, compartments=None, ncols=4):
+def plot_weights(adata, hexcodes=None, seed=None, compartments=None, ncols=4, w=1, h=1):
 
     expression_df = get_compartment_df(adata)
     dim = expression_df.shape[1]
@@ -594,7 +717,7 @@ def plot_weights(adata, hexcodes=None, seed=None, compartments=None, ncols=4):
     n_col = ncols
     n_row = math.ceil(n_comp / n_col)
 
-    fig, ax = plt.subplots(n_row, n_col, figsize=(3 * n_col, 4 * n_row))
+    fig, ax = plt.subplots(n_row, n_col, figsize=(w * 3 * n_col, h * 4 * n_row))
     ax = ax.flatten()
     for a in ax:
         a.axis('off')
