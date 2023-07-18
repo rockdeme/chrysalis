@@ -13,6 +13,4 @@ python:
   version: "3.8"
   install:
     - requirements: docs/requirements.txt
-      extra_requirements:
-        - chrysalis-st
   system_packages: true
