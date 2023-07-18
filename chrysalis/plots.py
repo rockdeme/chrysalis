@@ -161,9 +161,9 @@ def plot_compartment(adata: AnnData, fig: plt.figure, ax: plt.axis, selected_dim
     for d in range(dim):
         pc_cmap = color_to_color(color_first, hexcodes[d])
         pc_rgb = get_rgb_from_colormap(pc_cmap,
-                                       vmin=min(adata.obsm['chr_X_pca'][:, d]),
-                                       vmax=max(adata.obsm['chr_X_pca'][:, d]),
-                                       value=adata.obsm['chr_X_pca'][:, d])
+                                       vmin=min(adata.obsm['chr_aa'][:, d]),
+                                       vmax=max(adata.obsm['chr_aa'][:, d]),
+                                       value=adata.obsm['chr_aa'][:, d])
         cmaps.append(pc_rgb)
 
     adata.obsm['cmap'] = cmaps[selected_dim]

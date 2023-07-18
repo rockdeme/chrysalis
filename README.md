@@ -8,7 +8,7 @@
    <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/demo.png" width="781">
 </p>
 
-By combining PCA with AA, **chrysalis** can define distinct tissue compartments and cellular niches, which can be highlighted with specific colors. For instance, on the `V1_Human_Lymph_Node` dataset, **chrysalis** can identify and highlight various regions, such as germinal centers (yellow), B cell follicles (dark orange), and T cell compartments (lime). You can find more examples in the [gallery](https://github.com/rockdeme/chrysalis#gallery) section.
+By combining PCA with AA, **chrysalis** can define distinct tissue compartments and cellular niches, which can be highlighted with specific colors. For instance, in the `V1_Human_Lymph_Node` dataset, **chrysalis** can identify and highlight various regions, such as germinal centers (yellow), B cell follicles (dark orange), and T cell compartments (lime). You can find more examples in the [gallery](https://github.com/rockdeme/chrysalis#gallery) section.
 
 <p align="center">
    <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/human_lymph_node.jpg" width="670">
@@ -27,34 +27,42 @@ By combining PCA with AA, **chrysalis** can define distinct tissue compartments 
 - scikit_learn
 - scipy
 - tqdm
+- seaborn
 
 To install **chrysalis**:
 ```terminal
-pip install --index-url=https://test.pypi.org/simple/ --extra-index-url=https://pypi.org/simple/ chrysalis==1.4b0
-```
-If `rvlib` fails to install, you can try installing it with conda:
-```terminal
-conda install -c conda-forge rvlib 
+pip install chrysalis-st
 ```
 
 ## Usage
 
-**UPDATE**: Please refer to `lymph_node_demo.ipynb` for the updated funcionality.
-
 ```python
+import chrysalis as ch
 import scanpy as sc
 import matplotlib.pyplot as plt
-from chrysalis.functions import chrysalis_calculate, chrysalis_plot
 
-# download and read data
 adata = sc.datasets.visium_sge(sample_id='V1_Human_Lymph_Node')
-# calculate embeddings
-chrysalis_calculate(adata)
-# generate visualization
-chrysalis_plot(adata)
+
+sc.pp.calculate_qc_metrics(adata, inplace=True)
+sc.pp.filter_cells(adata, min_counts=6000)
+sc.pp.filter_genes(adata, min_cells=10)
+
+ch.detect_svgs(adata)
+
+sc.pp.normalize_total(adata, inplace=True)
+sc.pp.log1p(adata)
+
+ch.pca(adata)
+
+ch.aa(adata, n_pcs=20, n_archetypes=8)
+
+ch.plot(adata)
 plt.show()
 ```
-`chrysalis_calculate(adata)` stores data under `adata.obsm` allowing `chrysalis_plot(adata)` to be called without the need of recalculating the embeddings every time if the `anndata` object is saved.
+
+## Documentation and API details
+
+User documentation is available at: https://chrysalis.readthedocs.io/
 
 ## Gallery
 
