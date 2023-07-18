@@ -1,5 +1,0 @@
-name: chrysalis
-channels:
-  - defaults
-dependencies:
-  - python >= 3.8
