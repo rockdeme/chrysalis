@@ -1,1 +1,62 @@
-/* This file intentionally left blank. */
+/*
+`width:auto` was rendering 0px wide for .svg files
+https://stackoverflow.com/questions/59215996/how-to-add-a-logo-to-my-readthedocs-logo-rendering-at-0px-wide
+*/
+.wy-side-nav-search .wy-dropdown > a img.logo, .wy-side-nav-search > a img.logo {
+    width: 200px;
+}
+
+/* ReadTheDocs theme colors */
+
+.wy-nav-top { background-color: #f07e44 }
+
+.wy-side-nav-search { background-color: transparent}
+.wy-side-nav-search input[type="text"] { border-width: 0 }
+
+.wy-nav-content {
+    max-width: 1200px;
+    background: #ffffff;
+}
+
+.wy-body-for-nav {
+    background: #fcfcfc;
+}
+
+/* toctree menu caption colors*/
+.wy-menu-vertical header, .wy-menu-vertical p.caption {
+    color: #8655ea;
+}
+
+/* toctree menu background colors*/
+.wy-nav-side {
+    background: #f8f8f8;
+}
+
+/* toctree menu item colors*/
+.wy-menu-vertical a {
+    color: #231F20;
+}
+
+.wy-menu-vertical a:hover {
+    background-color: #d0beff;
+}
+
+.wy-menu-vertical a:hover button.toctree-expand {
+    color: #d9d9d9
+}
+
+.rst-content code.literal, .rst-content tt.literal {
+    color: #8655ea;
+}
+
+html.writer-html4 .rst-content dl:not(.docutils)>dt,html.writer-html5 .rst-content dl[class]:not(.option-list):not(.field-list):not(.footnote):not(.citation):not(.glossary):not(.simple)>dt {
+    display: table;
+    margin: 6px 0;
+    font-size: 90%;
+    line-height: normal;
+    background: #e7f2fa;
+    color: #b96a29;
+    border-top: 3px solid #6ab0de;
+    padding: 6px;
+    position: relative
+}
