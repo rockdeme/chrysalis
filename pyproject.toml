@@ -3,12 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "chrysalis"
-version = "1.0b"
+name = "chrysalis-st"
+version = "0.1.0"
 authors = [
-  {name="Demeter Turos"},
+  {name="Demeter Túrós"},
 ]
-description = "Lightweight package to create high-quality visualizations of spatial transcriptomics datasets based on spatially variable genes."
+description = "Powerful and lightweight package to identify tissue compartments in spatial transcriptomics datasets."
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -17,5 +17,31 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+dependencies = [
+    "archetypes",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "pysal",
+    "scanpy",
+    "scikit_learn",
+    "scipy",
+    "tqdm",
+    "seaborn",
+]
+
 [project.urls]
 "Homepage" = "https://github.com/rockdeme/chrysalis"
+"Documentation" = "https://chrysalis.readthedocs.io/"
+
+[tool.hatch.build.targets.wheel]
+packages = ["chrysalis"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.github",
+    "/docs",
+    "/misc",
+    "/plots",
+    ".readthedocs.yaml",
+]

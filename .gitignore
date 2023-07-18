@@ -1,0 +1,11 @@
+# dev and build folders
+/data
+/dist
+/dev
+
+# IDE
+/.ipynb_checkpoints
+/.idea
+
+# temp
+functions.py

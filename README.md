@@ -1,16 +1,17 @@
 <p align="center">
-   <img src="misc/logo.svg" width="300">
+   <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/55548889728acc0fd89c8041b8eb34071fb104af/misc/logo.svg" width="300">
 </p>
 
 **chrysalis** is a spatial domain detection and visualization tool that generates neat and meaningful visual representations of spatial transcriptomics datasets. It achieves this by leveraging PCA, archetypal analysis and spatially variable gene detection. Moreover, it seamlessly integrates into `scanpy` based pipelines.
 
 <p align="center">
-   <img src="misc/demo.png" width="781">
+   <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/demo.png" width="781">
 </p>
 
 By combining PCA with AA, **chrysalis** can define distinct tissue compartments and cellular niches, which can be highlighted with specific colors. For instance, on the `V1_Human_Lymph_Node` dataset, **chrysalis** can identify and highlight various regions, such as germinal centers (yellow), B cell follicles (dark orange), and T cell compartments (lime). You can find more examples in the [gallery](https://github.com/rockdeme/chrysalis#gallery) section.
+
 <p align="center">
-   <img src="misc/human_lymph_node.jpg" width="670">
+   <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/human_lymph_node.jpg" width="670">
 </p>
 
 ## Package
@@ -57,20 +58,20 @@ plt.show()
 
 ## Gallery
 
-<img src="plots/gallery/V1_Mouse_Brain_Sagittal_Anterior.png" width="500">
-<img src="plots/gallery/V1_Mouse_Brain_Sagittal_Posterior.png" width="500">
-<img src="plots/gallery/V1_Human_Lymph_Node.png" width="500">
-<img src="plots/gallery/V1_Mouse_Kidney.png" width="500">
-<img src="plots/gallery/V1_Breast_Cancer_Block_A_Section_1.png" width="500">
-<img src="plots/gallery/V1_Breast_Cancer_Block_A_Section_2.png" width="500">
-<img src="plots/gallery/V1_Human_Heart.png" width="500">
-<img src="plots/gallery/V1_Adult_Mouse_Brain.png" width="500">
-<img src="plots/gallery/V1_Mouse_Brain_Sagittal_Posterior_Section_2.png" width="500">
-<img src="plots/gallery/V1_Mouse_Brain_Sagittal_Anterior_Section_2.png" width="500">
-<img src="plots/gallery/V1_Adult_Mouse_Brain_Coronal_Section_1.png" width="500">
-<img src="plots/gallery/V1_Adult_Mouse_Brain_Coronal_Section_2.png" width="500">
-<img src="plots/gallery/Parent_Visium_Human_Cerebellum.png" width="500">
-<img src="plots/gallery/Parent_Visium_Human_Glioblastoma.png" width="500">
-<img src="plots/gallery/Parent_Visium_Human_BreastCancer.png" width="500">
-<img src="plots/gallery/Parent_Visium_Human_OvarianCancer.png" width="500">
-<img src="plots/gallery/Parent_Visium_Human_ColorectalCancer.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Mouse_Brain_Sagittal_Anterior.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Mouse_Brain_Sagittal_Posterior.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Human_Lymph_Node.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Mouse_Kidney.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Breast_Cancer_Block_A_Section_1.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Breast_Cancer_Block_A_Section_2.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Human_Heart.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Adult_Mouse_Brain.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Mouse_Brain_Sagittal_Posterior_Section_2.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Mouse_Brain_Sagittal_Anterior_Section_2.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Adult_Mouse_Brain_Coronal_Section_1.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Adult_Mouse_Brain_Coronal_Section_2.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/Parent_Visium_Human_Cerebellum.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/Parent_Visium_Human_Glioblastoma.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/Parent_Visium_Human_BreastCancer.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/Parent_Visium_Human_OvarianCancer.png" width="500">
+<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/Parent_Visium_Human_ColorectalCancer.png" width="500">

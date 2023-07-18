@@ -1,0 +1,22 @@
+version: 2
+
+sphinx:
+  configuration: docs/conf.py
+  builder: html
+
+build:
+  apt_packages:
+    - cmake
+    - g++
+
+conda:
+  environment: docs/environment.yml
+
+python:
+  version: "3.8"
+  install:
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
+  system_packages: true
