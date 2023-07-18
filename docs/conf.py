@@ -48,3 +48,6 @@ html_css_files = ['css/custom.css',
 autodoc_exclude_members = {
     'chrysalis.core': ['detect_svgs', 'pca', 'aa'],
 }
+
+def setup(app):
+    app.add_css_file("css/custom.css")
