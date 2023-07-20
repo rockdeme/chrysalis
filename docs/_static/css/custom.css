@@ -19,7 +19,7 @@ https://stackoverflow.com/questions/59215996/how-to-add-a-logo-to-my-readthedocs
 }
 
 .wy-body-for-nav {
-    background: #fcfcfc;
+    background: #ffffff;
 }
 
 /* toctree menu caption colors*/
@@ -59,4 +59,8 @@ html.writer-html4 .rst-content dl:not(.docutils)>dt,html.writer-html5 .rst-conte
     border-top: 3px solid #6ab0de;
     padding: 6px;
     position: relative
+}
+
+.wy-nav-content-wrap {
+    background: rgb(255 255 255 / 5%);
 }
