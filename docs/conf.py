@@ -31,7 +31,6 @@ extensions = ['myst_parser',
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
-
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
@@ -43,8 +42,9 @@ html_favicon = "favicon.svg"
 
 html_theme_options = {"logo_only": True}
 
-html_css_files = ['css/custom.css',
-                  ]
+html_css_files = ['css/custom.css', 'css/slider.scss']
+
+html_js_files = ['js/custom.js']
 
 autodoc_exclude_members = {
     'chrysalis.core': ['detect_svgs', 'pca', 'aa'],

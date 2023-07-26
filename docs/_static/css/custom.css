@@ -22,17 +22,17 @@ https://stackoverflow.com/questions/59215996/how-to-add-a-logo-to-my-readthedocs
     background: #ffffff;
 }
 
-/* toctree menu caption colors*/
+/* toctree menu caption colors */
 .wy-menu-vertical header, .wy-menu-vertical p.caption {
     color: #8655ea;
 }
 
-/* toctree menu background colors*/
+/* toctree menu background colors */
 .wy-nav-side {
     background: #f8f8f8;
 }
 
-/* toctree menu item colors*/
+/* toctree menu item colors */
 .wy-menu-vertical a {
     color: #231F20;
 }
@@ -63,4 +63,101 @@ html.writer-html4 .rst-content dl:not(.docutils)>dt,html.writer-html5 .rst-conte
 
 .wy-nav-content-wrap {
     background: rgb(255 255 255 / 5%);
+}
+
+/* before-after slider */
+
+html {
+	 box-sizing: border-box;
+}
+ *, *:before, *:after {
+	 box-sizing: inherit;
+}
+ body {
+	 margin: 0;
+	 height: 100vh;
+	 display: flex;
+	 justify-content: center;
+	 align-items: center;
+}
+ .container {
+	 position: relative;
+	 width: 500px;
+	 height: 436px;
+	 border: 2px solid white;
+}
+ .container .img {
+	 position: absolute;
+	 top: 0;
+	 left: 0;
+	 width: 100%;
+	 height: 100%;
+	 background-size: 500px 100%;
+}
+ .container .background-img {
+	 background-image: url('../images/before.png');
+}
+ .container .foreground-img {
+	 background-image: url('../images/after.png');
+	 width: 50%;
+}
+ .container .slider {
+	 position: absolute;
+	 -webkit-appearance: none;
+	 appearance: none;
+	 width: 100%;
+	 height: 100%;
+	 background: rgba(255, 255, 255, 0);
+	 outline: none;
+	 margin: 0;
+	 transition: all 0.2s;
+	 display: flex;
+	 justify-content: center;
+	 align-items: center;
+}
+ .container .slider:hover {
+	 background: rgba(242, 242, 242, .1);
+}
+ .container .slider::-webkit-slider-thumb {
+	 -webkit-appearance: none;
+	 appearance: none;
+	 width: 6px;
+	 height: 436px;
+	 background: #ffffff;
+	 cursor: pointer;
+}
+ .container .slider::-moz-range-thumb {
+	 width: 6px;
+	 height: 436px;
+	 background: white;
+	 cursor: pointer;
+}
+ .container .slider-button {
+	 pointer-events: none;
+	 position: absolute;
+	 width: 30px;
+	 height: 30px;
+	 border-radius: 50%;
+	 background-color: #ede8ff;
+	 left: calc(50% - 17.5px);
+	 top: calc(50% - 18px);
+	 display: flex;
+	 justify-content: center;
+	 align-items: center;
+}
+ .container .slider-button:after {
+	 content: '';
+	 padding: 3px;
+	 display: inline-block;
+	 border: solid #5d5d5d;
+	 border-width: 0 2px 2px 0;
+	 transform: rotate(-45deg);
+}
+ .container .slider-button:before {
+	 content: '';
+	 padding: 3px;
+	 display: inline-block;
+	 border: solid #5d5d5d;
+	 border-width: 0 2px 2px 0;
+	 transform: rotate(135deg);
 }

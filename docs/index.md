@@ -1,7 +1,7 @@
 [![Stars](https://img.shields.io/github/stars/rockdeme/chrysalis?logo=GitHub&color=yellow)](https://github.com/rockdeme/chrysalis/stargazers)
 [![PyPI](https://img.shields.io/pypi/v/chrysalis-st?logo=PyPI)](https://pypi.org/project/chrysalis-st)
 
-# chrysalis - detect and visualize tissue compartments
+# chrysalis - Detect and Visualize Tissue Compartments
 
 ```{include} ../README.md
 :start-line: 4
@@ -13,6 +13,19 @@
 * You can also browse the {doc}`API <api>`.
 * Consider citing our [bioRxiv preprint].
 
+## Visual demonstration: human lung cancer (FFPE)
+
+[Squamous Cell Carcinoma](https://www.10xgenomics.com/resources/datasets/human-lung-cancer-ffpe-2-standard) sample by 10X Genomics.
+
+Move the slider to reveal tissue compartments calculated by **chrysalis** or the associated tissue morphology.
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<div class='container'>
+<div class='img background-img'></div>
+<div class='img foreground-img'></div>
+<input type="range" min="1" max="100" value="50" class="slider" name='slider' id="slider">
+<div class='slider-button'></div>
+</div>
 
 ```{toctree}
 :hidden: true

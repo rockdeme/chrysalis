@@ -22,7 +22,7 @@ sc.pp.calculate_qc_metrics(adata, inplace=True)
 sc.pp.filter_cells(adata, min_counts=6000)
 sc.pp.filter_genes(adata, min_cells=10)
 
-ch.detect_svgs(adata)
+ch.detect_svgs(adata, min_morans=0.08, min_spots=0.05)
 
 sc.pp.normalize_total(adata, inplace=True)
 sc.pp.log1p(adata)
