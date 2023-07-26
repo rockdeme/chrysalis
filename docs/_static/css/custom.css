@@ -80,13 +80,13 @@ html {
 	 justify-content: center;
 	 align-items: center;
 }
- .container {
+ .befaft_container {
 	 position: relative;
 	 width: 500px;
 	 height: 436px;
 	 border: 2px solid white;
 }
- .container .img {
+ .befaft_container .img {
 	 position: absolute;
 	 top: 0;
 	 left: 0;
@@ -94,14 +94,14 @@ html {
 	 height: 100%;
 	 background-size: 500px 100%;
 }
- .container .background-img {
+ .befaft_container .background-img {
 	 background-image: url('../images/before.png');
 }
- .container .foreground-img {
+ .befaft_container .foreground-img {
 	 background-image: url('../images/after.png');
 	 width: 50%;
 }
- .container .slider {
+ .befaft_container .slider {
 	 position: absolute;
 	 -webkit-appearance: none;
 	 appearance: none;
@@ -115,10 +115,10 @@ html {
 	 justify-content: center;
 	 align-items: center;
 }
- .container .slider:hover {
+ .befaft_container .slider:hover {
 	 background: rgba(242, 242, 242, .1);
 }
- .container .slider::-webkit-slider-thumb {
+ .befaft_container .slider::-webkit-slider-thumb {
 	 -webkit-appearance: none;
 	 appearance: none;
 	 width: 6px;
@@ -126,13 +126,13 @@ html {
 	 background: #ffffff;
 	 cursor: pointer;
 }
- .container .slider::-moz-range-thumb {
+ .befaft_container .slider::-moz-range-thumb {
 	 width: 6px;
 	 height: 436px;
 	 background: white;
 	 cursor: pointer;
 }
- .container .slider-button {
+ .befaft_container .slider-button {
 	 pointer-events: none;
 	 position: absolute;
 	 width: 30px;
@@ -145,7 +145,7 @@ html {
 	 justify-content: center;
 	 align-items: center;
 }
- .container .slider-button:after {
+ .befaft_container .slider-button:after {
 	 content: '';
 	 padding: 3px;
 	 display: inline-block;
@@ -153,7 +153,7 @@ html {
 	 border-width: 0 2px 2px 0;
 	 transform: rotate(-45deg);
 }
- .container .slider-button:before {
+ .befaft_container .slider-button:before {
 	 content: '';
 	 padding: 3px;
 	 display: inline-block;

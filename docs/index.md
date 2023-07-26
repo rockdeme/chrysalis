@@ -20,7 +20,7 @@
 Move the slider to reveal tissue compartments calculated by **chrysalis** or the associated tissue morphology.
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<div class='container'>
+<div class='befaft_container'>
 <div class='img background-img'></div>
 <div class='img foreground-img'></div>
 <input type="range" min="1" max="100" value="50" class="slider" name='slider' id="slider">
