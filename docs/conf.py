@@ -42,7 +42,7 @@ html_favicon = "favicon.svg"
 
 html_theme_options = {"logo_only": True}
 
-html_css_files = ['css/custom.css', 'css/slider.scss']
+html_css_files = ['css/custom.css']
 
 html_js_files = ['js/custom.js']
 
