@@ -9,12 +9,12 @@ from pysal.explore import esda
 from sklearn.decomposition import PCA
 
 
-def detect_svgs(adata: AnnData, min_spots: float=0.1, top_svg: int=1000, min_morans: float=0.20, neighbors: int=6,
+def detect_svgs(adata: AnnData, min_spots: float=0.05, top_svg: int=1000, min_morans: float=0.20, neighbors: int=6,
                 geary: bool=False):
     """
     Calculate spatial autocorrelation (Moran's I) to define spatially variable genes.
 
-    By default we only calculate autocorrelation for genes expressed in at least 10% of capture spots
+    By default we only calculate autocorrelation for genes expressed in at least 5% of capture spots
     defined with `min_spots`.
 
     :param adata:
