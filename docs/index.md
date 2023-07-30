@@ -1,7 +1,7 @@
 [![Stars](https://img.shields.io/github/stars/rockdeme/chrysalis?logo=GitHub&color=yellow)](https://github.com/rockdeme/chrysalis/stargazers)
 [![PyPI](https://img.shields.io/pypi/v/chrysalis-st?logo=PyPI)](https://pypi.org/project/chrysalis-st)
 
-# chrysalis - Detect and Visualize Tissue Compartments
+# Welcome to chrysalis!
 
 ```{include} ../README.md
 :start-line: 4
@@ -13,7 +13,8 @@
 * You can also browse the {doc}`API <api>`.
 * Consider citing our [bioRxiv preprint].
 
-## Visual demonstration: human lung cancer (FFPE)
+## Visual demonstration
+### human lung cancer (FFPE)
 
 [Squamous Cell Carcinoma](https://www.10xgenomics.com/resources/datasets/human-lung-cancer-ffpe-2-standard) sample by 10X Genomics.
 
