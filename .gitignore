@@ -1,11 +1,11 @@
 # dev and build folders
-/data
+data/
 /dist
 /dev
 
 # IDE
-/.ipynb_checkpoints
 /.idea
+.ipynb_checkpoints/
 
 # temp
 functions.py
