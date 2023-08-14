@@ -43,6 +43,7 @@ overview/installation
 :caption: Tutorials
 
 tutorials/lymph_node_tutorial
+tutorials/mouse_brain_integration_tutorial
 ```
 
 ```{toctree}

@@ -54,9 +54,9 @@ html.writer-html4 .rst-content dl:not(.docutils)>dt,html.writer-html5 .rst-conte
     margin: 6px 0;
     font-size: 90%;
     line-height: normal;
-    background: #e7f2fa;
-    color: #b96a29;
-    border-top: 3px solid #6ab0de;
+    background: rgba(240, 231, 250, 0.73);
+    color: #8655ea;
+    border-top: 3px solid #6726ec;
     padding: 6px;
     position: relative
 }
@@ -160,4 +160,9 @@ html {
 	 border: solid #5d5d5d;
 	 border-width: 0 2px 2px 0;
 	 transform: rotate(135deg);
+}
+
+ .highlight .nn {
+    color: #8655ea;
+    font-weight: bold;
 }
