@@ -1,7 +1,10 @@
 # Chrysalis Article Readme
 
-## Here you can find the code used in our preprint
 
+The collection of notebooks and scripts found in this folder was utilized for our research article. 
+It serves the purpose of demonstrating the data analysis we performed. To replicate the analysis, 
+supplementary actions are necessary, such as acquiring the raw data, modifying fixed directory paths, 
+, downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.8247780), and so on. 
 ```
 .
 ├── 1_human_lymph_node
@@ -39,3 +42,15 @@
 │   └── stereo_seq_analysis.ipynb
 └── readme.md
 ```
+
+## Chrysalis: decoding tissue compartments in spatial transcriptomics with archetypal analysis
+
+**Authors**: Demeter Túrós, Jelica Vasiljevic, Kerstin Hahn, Sven Rottenberg, and Alberto Valdeolivas
+
+**Abstract**: Dissecting tissue compartments in spatial transcriptomics (ST) remains challenging due 
+to limited spatial resolution and dependence on single-cell reference data. We present Chrysalis, a 
+novel method to rapidly detect tissue compartments through spatially variable gene (SVG) detection 
+and archetypal analysis without external references. We applied Chrysalis on ST datasets originating 
+from various species, tissues and technologies and demonstrated state-of-the-art performance in 
+identifying cellular niches.
+
