@@ -5,7 +5,7 @@
 
 ```{include} ../README.md
 :start-line: 4
-:end-line: 6
+:end-line: 7
 ```
 
 * Discuss **chrysalis** on [GitHub].
