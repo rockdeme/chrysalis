@@ -1,21 +1,29 @@
 <p align="center">
-   <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/55548889728acc0fd89c8041b8eb34071fb104af/misc/logo.svg" width="300">
+   <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/banner.png" width="850">
 </p>
 
-**chrysalis** is a spatial domain detection and visualization tool that generates neat and meaningful visual representations of spatial transcriptomics datasets. It achieves this by leveraging PCA, archetypal analysis and spatially variable gene detection. Moreover, it seamlessly integrates into `scanpy` based pipelines.
+**chrysalis** is a spatial domain detection and visualization tool that generates neat and meaningful visual 
+representations of spatial transcriptomics datasets. It achieves this by leveraging archetypal analysis and 
+spatially variable gene detection. Moreover, it seamlessly integrates into `scanpy` based pipelines.
 
 <p align="center">
-   <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/demo.png" width="781">
+   <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/panel_1.png" width=800">
+
 </p>
 
-By combining PCA with AA, **chrysalis** can define distinct tissue compartments and cellular niches, which can be highlighted with specific colors. For instance, in the `V1_Human_Lymph_Node` dataset, **chrysalis** can identify and highlight various regions, such as germinal centers (yellow), B cell follicles (dark orange), and T cell compartments (lime). You can find more examples in the [gallery](https://github.com/rockdeme/chrysalis#gallery) section.
+**chrysalis** can define distinct tissue compartments and cellular niches, which can be 
+highlighted with specific colors. For instance, in the `V1_Human_Lymph_Node` dataset, **chrysalis** can identify and 
+highlight various regions, such as germinal centers (yellow), B cell follicles (dark orange), and T cell compartments 
+(lime). You can find more examples in the [gallery](https://github.com/rockdeme/chrysalis#gallery) section.
 
 <p align="center">
-   <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/human_lymph_node.jpg" width="670">
+   <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/panel_2.png" width="850">
 </p>
 
 ## Package
-**chrysalis** can be used with any pre-existing `anndata` snapshot of 10X Visium, Slide-seqV2 and Stereo-seq datasets generated with `scanpy`, and on new samples without the need of preprocessing. It is designed to be as lightweight as possible, however currently it relies on `libpysal` for its fast implementation of Moran's I.
+**chrysalis** can be used with any pre-existing `anndata` snapshot of 10X Visium, Slide-seqV2 and Stereo-seq datasets 
+generated with `scanpy`, and on new samples without the need of preprocessing. It is designed to be as lightweight as 
+possible, however currently it relies on `libpysal` for its fast implementation of Moran's I.
 
 **chrysalis** requires the following packages:
 - numpy
