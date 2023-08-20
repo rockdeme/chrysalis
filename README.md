@@ -2,19 +2,27 @@
    <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/banner.png" width="850">
 </p>
 
-**chrysalis** is a spatial domain detection and visualization tool that generates neat and meaningful visual 
-representations of spatial transcriptomics datasets. It achieves this by leveraging archetypal analysis and 
-spatially variable gene detection. Moreover, it seamlessly integrates into `scanpy` based pipelines.
+**chrysalis** is a powerful and lightweight method designed to identify and visualise tissue compartments in spatial 
+transcriptomics datasets, all without the need for external references.
+**chrysalis** achieves this by identifying spatially variable genes (SVGs) through spatial autocorrelation. 
+It then employs dimensionality reduction and archetypal analysis to locate extremal points in the low-dimensional 
+feature space, which represent pure tissue compartments.
+Each observation (i.e. capture spot) in the gene expression matrix is subsequently represented as a proportion of these 
+distinct compartments.
+**chrysalis** features a unique approach based on maximum intensity projection, allowing the simultaneous visualization 
+of diverse tissue compartments.
+Moreover, it seamlessly integrates into `scanpy` based pipelines.
+
+If you like **chrysalis**, consider citing our [preprint](https://github.com/rockdeme/chrysalis/#Reference).
 
 <p align="center">
    <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/panel_1.png" width=800">
-
 </p>
 
-**chrysalis** can define distinct tissue compartments and cellular niches, which can be 
-highlighted with specific colors. For instance, in the `V1_Human_Lymph_Node` dataset, **chrysalis** can identify and 
-highlight various regions, such as germinal centers (yellow), B cell follicles (dark orange), and T cell compartments 
-(lime). You can find more examples in the [gallery](https://github.com/rockdeme/chrysalis#gallery) section.
+**chrysalis** can define distinct tissue compartments and cellular niches with specific gene expression signatures, 
+highlighted with specific colors. For instance, in the `V1_Human_Lymph_Node` dataset, **chrysalis** identifies
+various regions, such as germinal centers (yellow), B cell follicles (dark orange), and T cell compartments 
+(lime). You can find more examples in the [gallery](https://github.com/rockdeme/chrysalis/tree/master/gallery#readme) section.
 
 <p align="center">
    <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/panel_2.png" width="850">
@@ -42,6 +50,14 @@ To install **chrysalis**:
 pip install chrysalis-st
 ```
 
+## Documentation, Tutorials and API details
+
+User documentation is available on: https://chrysalis.readthedocs.io/
+
+Basic tutorials covering the main functionality of **chrysalis** are available on the documentation site.
+- first step-by-step tutorial: https://chrysalis.readthedocs.io/en/latest/tutorials/lymph_node_tutorial.html
+
+
 ## Usage
 
 ```python
@@ -68,26 +84,8 @@ ch.plot(adata)
 plt.show()
 ```
 
-## Documentation and API details
+## Reference
 
-User documentation is available at: https://chrysalis.readthedocs.io/
-
-## Gallery
-
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Mouse_Brain_Sagittal_Anterior.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Mouse_Brain_Sagittal_Posterior.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Human_Lymph_Node.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Mouse_Kidney.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Breast_Cancer_Block_A_Section_1.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Breast_Cancer_Block_A_Section_2.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Human_Heart.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Adult_Mouse_Brain.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Mouse_Brain_Sagittal_Posterior_Section_2.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Mouse_Brain_Sagittal_Anterior_Section_2.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Adult_Mouse_Brain_Coronal_Section_1.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/V1_Adult_Mouse_Brain_Coronal_Section_2.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/Parent_Visium_Human_Cerebellum.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/Parent_Visium_Human_Glioblastoma.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/Parent_Visium_Human_BreastCancer.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/Parent_Visium_Human_OvarianCancer.png" width="500">
-<img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/plots/gallery/Parent_Visium_Human_ColorectalCancer.png" width="500">
+**Chrysalis: decoding tissue compartments in spatial transcriptomics with archetypal analysis**  
+*Demeter Turos, Jelica Vasiljevic, Kerstin Hahn, Sven Rottenberg, Alberto Valdeolivas*  
+doi: https://doi.org/10.1101/2023.08.17.553606

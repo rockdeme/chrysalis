@@ -55,4 +55,4 @@ api
 ```
 
 [GitHub]: https://github.com/rockdeme/chrysalis
-[bioRxiv preprint]: https://github.com/rockdeme/chrysalis
+[bioRxiv preprint]: https://doi.org/10.1101/2023.08.17.553606
