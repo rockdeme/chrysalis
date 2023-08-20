@@ -13,7 +13,7 @@ distinct compartments.
 of diverse tissue compartments.
 Moreover, it seamlessly integrates into `scanpy` based pipelines.
 
-If you like **chrysalis**, consider citing our [preprint](https://github.com/rockdeme/chrysalis/#Reference).
+If you like **chrysalis**, consider citing our [preprint](https://github.com/rockdeme/chrysalis/#reference).
 
 <p align="center">
    <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/panel_1.png" width=800">
