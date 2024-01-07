@@ -100,7 +100,8 @@ def mip_colors(colors_1, colors_2):
 
 def get_colors(adata, dim=8, seed=42):
     if dim > 8:
-        hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5)
+        hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5, seed=seed,
+                                          saturation=0.65, lightness=0.60)
     else:
         hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
         if seed is None:
@@ -157,16 +158,23 @@ def get_compartment_df(adata: AnnData, weights: bool=True):
     return df
 
 
-def integrate_adatas(adatas: List[AnnData], sample_names: List[str]=None, **kwargs):
+def integrate_adatas(adatas: List[AnnData], sample_names: List[str]=None, calculate_svgs: bool=False,
+                     sample_col: str='sample', **kwargs):
     """
     Integrate multiple samples stored in AnnData objects.
 
+    If ENSEMBL IDs are present in the`.var['gene_ids']` column, that will be used instead of gene symbols.
     `.var['spatially_variable']` will be outer joined.
 
     :param adatas: List of AnnData objects.
     :param sample_names: List of sample names. If not defined, a list of integers [0, 1, ...] will be used instead.
+    :param calculate_svgs: If True, the function also runs `chrysalis.detect_svgs` for every sample.
+    :param sample_col: `.obs` column name to store the sample labels.
     :param kwargs: Keyword arguments for `chrysalis.detect_svgs`.
-    :return: Integrated AnnData object. Sample IDs are stored in `.obs['sample'].
+    :return:
+        Integrated AnnData object. Sample IDs are stored in `.obs[sample_col]. `.var['spatially_variable']` contains
+        the union of`.var['spatially_variable']` from the input AnnData objects. Sample-wise SVG data is stored in
+        `.varm['spatially_variable']` and Moran's I is stored in `.varm["Moran's I"]`.
 
     """
 
@@ -175,13 +183,28 @@ def integrate_adatas(adatas: List[AnnData], sample_names: List[str]=None, **kwar
     assert len(adatas) == len(sample_names)
 
     adatas_dict = {}
+    gene_symbol_dict = {}
     for ad, name in zip(adatas, sample_names):
-        ad.obs['sample'] = name
-        if 'gene_ids' in ad.var.columns:
+
+        # check if column is already used
+        if sample_col not in ad.obs.columns:
+            ad.obs[sample_col] = name
+        else:
+            raise Exception('sample_id_col is already present in adata.obs, specify another column.')
+
+        if 'gene_symbols' not in ad.var.columns:
             ad.var['gene_symbols'] = ad.var_names
+
+        if 'gene_ids' in ad.var.columns:
             ad.var_names = ad.var['gene_ids']
 
-        detect_svgs(ad, **kwargs)
+        # check if SVGs are already present
+        if 'spatially_variable' not in ad.var.columns:
+            if calculate_svgs:
+                detect_svgs(ad, **kwargs)
+            else:
+                raise Exception('spatially_variable column is not found in adata.var. Run `chrysalis.detect_svgs` '
+                                'first or set the calculate_svgs argument to True.')
 
         ad.var[f'spatially_variable_{name}'] = ad.var['spatially_variable']
         ad.var[f"Moran's I_{name}"] = ad.var["Moran's I"]
@@ -189,43 +212,121 @@ def integrate_adatas(adatas: List[AnnData], sample_names: List[str]=None, **kwar
         adatas_dict[name] = ad
 
     # concat samples
-    adata = anndata.concat(adatas_dict, index_unique='-', uns_merge='unique', merge='unique')
-    adata.obs['sample'] = adata.obs['sample'].astype('category')
+    adata = anndata.concat(adatas_dict, index_unique='-', uns_merge='unique', merge='first')
+    adata.obs[sample_col] = adata.obs[sample_col].astype('category')
     # get SVGs for all samples
     svg_columns = [c for c in adata.var.columns if 'spatially_variable' in c]
     svg_list = [list(adata.var[c][adata.var[c] == True].index) for c in svg_columns]
+
     # union of SVGs
     spatially_variable = list(set().union(*svg_list))
     adata.var['spatially_variable'] = [True if x in spatially_variable else False for x in adata.var_names]
 
+    # save sample-wise spatially_variable and Morans's I columns
+    sv_cols = [x for x in adata.var.columns if 'spatially_variable_' in x]
+    adata.varm['spatially_variable'] = adata.var[sv_cols]
+    if 'gene_ids' in adata.var.columns:
+        adata.varm['spatially_variable']['gene_ids'] = adata.var['gene_ids']
+    if 'gene_symbols' in adata.var.columns:
+        adata.varm['spatially_variable']['gene_symbols'] = adata.var['gene_symbols']
+    adata.var = adata.var.drop(columns=sv_cols)
+
+    mi_cols = [x for x in adata.var.columns if "Moran's I_" in x]
+    adata.varm["Moran's I"] = adata.var[mi_cols]
+    if 'gene_ids' in adata.var.columns:
+        adata.varm["Moran's I"]['gene_ids'] = adata.var['gene_ids']
+    if 'gene_symbols' in adata.var.columns:
+        adata.varm["Moran's I"]['gene_symbols'] = adata.var['gene_symbols']
+    adata.var = adata.var.drop(columns=mi_cols)
+
     return adata
 
 
-def morans_i(w_orig, y):
+def harmony_integration(adata, covariates, input_matrix='chr_X_pca', corrected_matrix=None,
+                        random_state=42, **harmony_kw):
     """
-    Not in use.
+    Integrate data using `harmonypy`, the Python implementation of the R package Harmony.
 
-    REF: https://github.com/yatshunlee/spatial_autocorrelation/blob/main/spatial_autocorrelation/moransI.py modified.
+    Harmony integration is done on the PCA matrix, therefore `chrysalis.pca` must be run before this function.
 
-    :param w_orig:
-    :param y:
+    :param adata: The AnnData data matrix of shape `n_obs` × `n_vars`. Rows correspond to cells and columns to genes.
+    :param covariates: String or list of strings containing the covariate columns to integrate over.
+    :param input_matrix: Input PCA matrix, by default 'chr_X_pca' is used in `.obsm`.
+    :param corrected_matrix: If `corrected_matrix` is defined, a new `.obsm` matrix will be created for the integrated
+    results instead of overwriting the `input_matrix`.
+    :param harmony_kw: `harmonypy.run_harmony()` keyword arguments.
     :return:
+        Replaces `.obsm[input_matrix]` with the corrected one, or saves the new matrix as a new .`.obsm` matrix
+        specified with `corrected_matrix`.
+
     """
 
-    if not isinstance(y, np.ndarray):
-        raise TypeError("Passed array (feature) should be in numpy array (ndim = 1)")
-    if y.shape[0] != w_orig.shape[0]:
-        raise ValueError("Feature array is not the same shape of weight")
-    if w_orig.shape[0] != w_orig.shape[1]:
-        raise ValueError("Weight array should be in square shape")
+    try:
+        import harmonypy as hm
+    except ImportError:
+        raise ImportError("Please install harmonypy: `pip install harmonypy`.")
 
-    w = w_orig.copy()
-    y_hat = np.mean(y)
-    D = y - y_hat
-    D_sq = (y - y_hat) ** 2
-    N = y.shape[0]
-    sum_W = np.sum(w)
-    w *= D.reshape(-1, 1) * D.reshape(1, -1) * (w != 0)
-    moransI = (np.sum(w) / sum(D_sq)) * (N / sum_W)
+    data_matrix = adata.obsm[input_matrix]
+    metadata = adata.obs
 
-    return round(moransI, 8)
+    ho = hm.run_harmony(data_matrix, metadata, covariates, random_state, **harmony_kw)
+
+    adjusted_matrix = np.transpose(ho.Z_corr)
+
+    if corrected_matrix is None:
+        adata.obsm[input_matrix] = adjusted_matrix
+    else:
+        adata.obsm[corrected_matrix] = adjusted_matrix
+
+
+def get_color_vector(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None,
+                     selected_comp='all'):
+    # define compartment colors
+    # default colormap with 8 colors
+    hexcodes = get_hexcodes(hexcodes, dim, seed, len(adata))
+
+    if selected_comp == 'all':
+        # define colormaps
+        cmaps = []
+        for d in range(dim):
+            pc_cmap = black_to_color(hexcodes[d])
+            pc_rgb = get_rgb_from_colormap(pc_cmap,
+                                           vmin=min(adata.obsm['chr_aa'][:, d]),
+                                           vmax=max(adata.obsm['chr_aa'][:, d]),
+                                           value=adata.obsm['chr_aa'][:, d])
+            cmaps.append(pc_rgb)
+
+        # mip colormaps
+        cblend = mip_colors(cmaps[0], cmaps[1],)
+        if len(cmaps) > 2:
+            i = 2
+            for cmap in cmaps[2:]:
+                cblend = mip_colors(cblend, cmap,)
+                i += 1
+    # specific compartment
+    else:
+        color_first = '#2e2e2e'
+        pc_cmap = color_to_color(color_first, hexcodes[selected_comp])
+        pc_rgb = get_rgb_from_colormap(pc_cmap,
+                                       vmin=min(adata.obsm['chr_aa'][:, selected_comp]),
+                                       vmax=max(adata.obsm['chr_aa'][:, selected_comp]),
+                                       value=adata.obsm['chr_aa'][:, selected_comp])
+        cblend = pc_rgb
+    return cblend
+
+
+def get_hexcodes(hexcodes, dim, seed, adata_len):
+    if hexcodes is None:
+        if dim > 8:
+            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5, seed=seed,
+                                              saturation=0.65, lightness=0.60)
+        else:
+            hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
+            if seed is None:
+                np.random.seed(adata_len)
+            else:
+                np.random.seed(seed)
+            np.random.shuffle(hexcodes)
+    else:
+        assert len(hexcodes) >= dim
+    return hexcodes

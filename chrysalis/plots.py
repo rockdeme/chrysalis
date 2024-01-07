@@ -3,16 +3,18 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from anndata import AnnData
-from typing import List, Union, Tuple
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from typing import List, Union, Tuple
 from scipy.spatial.distance import cdist
 from scipy.cluster.hierarchy import linkage, leaves_list
 from .utils import generate_random_colors, black_to_color, get_rgb_from_colormap, mip_colors, color_to_color, \
-    get_compartment_df
+    get_compartment_df, get_hexcodes
 
 
 def plot(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None, sample_id: Union[int, str]=None,
-         spot_size: float=1.05, marker: str='h', figsize: Tuple[int, int]=(5, 5), **scr_kw):
+         sample_col: str='sample', spot_size: float=1.05, marker: str='h', figsize: Tuple[int, int]=(5, 5),
+         ax: Axes=None, dpi: int=100, selected_comp: Union[int, str]='all', **scr_kw):
     """
     Visualize tissue compartments using MIP (Maximum Intensity Projection).
 
@@ -24,10 +26,16 @@ def plot(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None, s
     :param dim: Number of components to visualize.
     :param hexcodes: List of hexadecimal colors to replace the default colormap.
     :param seed: Random seed, used for mixing colors.
-    :param sample_id: Sample id defined by `.obs['sample']` column.
-    :param spot_size: Fine adjustments of the spot size.
+    :param sample_id:
+        ID corresponding to the sample as defined in the sample column, stored `.obs['sample']` by default.
+    :param sample_col:
+        The `.obs` column storing the `sample_id` information, 'sample' by default.
+    :param spot_size: Adjust the final spot size.
     :param marker: Marker type.
     :param figsize: Figure size as a tuple.
+    :param ax: Draw plot on a specific Matplotlib axes instead of a figure if specified.
+    :param dpi: Optional DPI value used when `ax` is specified.
+    :param selected_comp: Show only the selected compartment if specified.
     :param scr_kw: Matplotlib scatterplot keyword arguments.
 
     Example usage:
@@ -49,76 +57,115 @@ def plot(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None, s
 
     """
 
-    # todo: have a look at spot_size, still not exactly proportional to the physical size of the plot
+    # todo: have a look at spot_size, still not scales linearly with the distance between spots
 
     # define compartment colors
     # default colormap with 8 colors
-    if hexcodes is None:
-        if dim > 8:
-            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5, seed=seed)
-        else:
-            hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
-            if seed is None:
-                np.random.seed(len(adata))
-            else:
-                np.random.seed(seed)
-            np.random.shuffle(hexcodes)
+
+    hexcodes = get_hexcodes(hexcodes, dim, seed, len(adata))
+
+    if selected_comp == 'all':
+        # define colormaps
+        cmaps = []
+        for d in range(dim):
+            pc_cmap = black_to_color(hexcodes[d])
+            pc_rgb = get_rgb_from_colormap(pc_cmap,
+                                           vmin=min(adata.obsm['chr_aa'][:, d]),
+                                           vmax=max(adata.obsm['chr_aa'][:, d]),
+                                           value=adata.obsm['chr_aa'][:, d])
+            cmaps.append(pc_rgb)
+
+        # mip colormaps
+        cblend = mip_colors(cmaps[0], cmaps[1],)
+        if len(cmaps) > 2:
+            i = 2
+            for cmap in cmaps[2:]:
+                cblend = mip_colors(cblend, cmap,)
+                i += 1
+    # specific compartment
     else:
-        assert len(hexcodes) >= dim
-
-    # define colormaps
-    cmaps = []
-    for d in range(dim):
-        pc_cmap = black_to_color(hexcodes[d])
+        color_first = '#2e2e2e'
+        pc_cmap = color_to_color(color_first, hexcodes[selected_comp])
         pc_rgb = get_rgb_from_colormap(pc_cmap,
-                                       vmin=min(adata.obsm['chr_aa'][:, d]),
-                                       vmax=max(adata.obsm['chr_aa'][:, d]),
-                                       value=adata.obsm['chr_aa'][:, d])
-        cmaps.append(pc_rgb)
+                                       vmin=min(adata.obsm['chr_aa'][:, selected_comp]),
+                                       vmax=max(adata.obsm['chr_aa'][:, selected_comp]),
+                                       value=adata.obsm['chr_aa'][:, selected_comp])
+        cblend = pc_rgb
 
-    # mip colormaps
-    cblend = mip_colors(cmaps[0], cmaps[1],)
-    if len(cmaps) > 2:
-        i = 2
-        for cmap in cmaps[2:]:
-            cblend = mip_colors(cblend, cmap,)
-            i += 1
 
-    if 'sample' in adata.obs.columns and sample_id is None:
+    if sample_col in adata.obs.columns and sample_id is None:
         if sample_id not in adata.obs['sample'].cat.categories:
-            raise ValueError("Invalid sample_id. Check categories in .obs['sample']")
-        raise ValueError("Integrated dataset. Cannot proceed without a specified sample_id")
+            raise ValueError(f"Invalid sample_id. Check categories in .obs['{sample_col}']")
+        raise ValueError("Integrated dataset. Cannot proceed without a specified sample column from .obs.")
 
     if sample_id is not None:
-        cblend = [x for x, b in zip(cblend, list(adata.obs['sample'] == sample_id)) if b == True]
-        adata = adata[adata.obs['sample'] == sample_id]
+        cblend = [x for x, b in zip(cblend, list(adata.obs[sample_col] == sample_id)) if b == True]
+        adata = adata[adata.obs[sample_col] == sample_id]
 
-    # plot
-    fig, ax = plt.subplots(1, 1, figsize=figsize)
-    ax.axis('off')
-    row = adata.obsm['spatial'][:, 0]
-    col = adata.obsm['spatial'][:, 1] * -1
-    row_range = np.ptp(row)
-    col_range = np.ptp(col)
-    ax.set_xlim((np.min(row) - 0.1 * row_range, np.max(row) + 0.1 * row_range))
-    ax.set_ylim((np.min(col) - 0.1 * col_range, np.max(col) + 0.1 * col_range))
-    ax.set_aspect('equal')
+    if ax is None:
+        # plot
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        ax.axis('off')
+        row = adata.obsm['spatial'][:, 0]
+        col = adata.obsm['spatial'][:, 1] * -1
+        row_range = np.ptp(row)
+        col_range = np.ptp(col)
+        ax.set_xlim((np.min(row) - 0.1 * row_range, np.max(row) + 0.1 * row_range))
+        ax.set_ylim((np.min(col) - 0.1 * col_range, np.max(col) + 0.1 * col_range))
+        ax.set_aspect('equal')
 
-    # takes long time to compute the pairwise distance matrix for stereo-seq or slide-seq samples, so by looking at
-    # only 5000 spots is a good enough approximation
-    if len(row) < 5000:
-        distances = cdist(np.column_stack((row, col)), np.column_stack((row, col)))
+        # takes long time to compute the pairwise distance matrix for stereo-seq or slide-seq samples, so by looking at
+        # only 5000 spots is a good enough approximation
+        if len(row) < 5000:
+            distances = cdist(np.column_stack((row, col)), np.column_stack((row, col)))
+        else:
+            distances = cdist(np.column_stack((row[:5000], col[:5000])), np.column_stack((row[:5000], col[:5000])))
+
+        np.fill_diagonal(distances, np.inf)
+        min_distance = np.min(distances)
+
+        # get the physical length of the x and y axes
+        ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
+        size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
+        size = size_const ** 2 * spot_size
+        plt.scatter(row, col, s=size, marker=marker, c=cblend, **scr_kw)
     else:
-        distances = cdist(np.column_stack((row[:5000], col[:5000])), np.column_stack((row[:5000], col[:5000])))
+        row = adata.obsm['spatial'][:, 0]
+        col = adata.obsm['spatial'][:, 1] * -1
+        row_range = np.ptp(row)
+        col_range = np.ptp(col)
+        xrange = (np.min(row) - 0.1 * row_range, np.max(row) + 0.1 * row_range)
+        yrange = (np.min(col) - 0.1 * col_range, np.max(col) + 0.1 * col_range)
+        ax.set_xlim(xrange)
+        ax.set_ylim(yrange)
+        ax.set_aspect('equal')
 
-    np.fill_diagonal(distances, np.inf)
-    min_distance = np.min(distances)
+        # takes long time to compute the pairwise distance matrix for stereo-seq or slide-seq samples, so by looking at
+        # only 5000 spots is a good enough approximation
+        if len(row) < 5000:
+            distances = cdist(np.column_stack((row, col)), np.column_stack((row, col)))
+        else:
+            distances = cdist(np.column_stack((row[:5000], col[:5000])), np.column_stack((row[:5000], col[:5000])))
 
-    # get the physical length of the x and y axes
-    ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
-    size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
-    size = size_const ** 2 * spot_size
-    plt.scatter(row, col, s=size, marker=marker, c=cblend, **scr_kw)
+        np.fill_diagonal(distances, np.inf)
+        min_distance = np.min(distances)
+
+        if row_range > col_range:
+            ax_len = np.diff(ax.get_xlim())[0]
+            bbox = ax.get_position()
+            width_in_points = bbox.width * figsize[0] * dpi
+            diameter = (min_distance / 2) / ax_len
+            diam_points = width_in_points * diameter
+            diam_points = diam_points ** 2 * 2 * spot_size
+        else:
+            ax_len = np.diff(ax.get_ylim())[0]
+            bbox = ax.get_position()
+            width_in_points = bbox.height * figsize[1] * dpi
+            diameter = (min_distance / 2) / ax_len
+            diam_points = width_in_points * diameter
+            diam_points = diam_points ** 2 * 2 * spot_size
+
+        ax.scatter(row, col, s=diam_points, marker=marker, c=cblend, **scr_kw)
 
 
 def plot_compartment(adata: AnnData, fig: plt.figure, ax: plt.axis, selected_dim: int, dim: int=8,
@@ -143,18 +190,7 @@ def plot_compartment(adata: AnnData, fig: plt.figure, ax: plt.axis, selected_dim
     """
 
     # define PC colors
-    if hexcodes is None:
-        if dim > 8:
-            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5, seed=seed)
-        else:
-            hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
-            if seed is None:
-                np.random.seed(len(adata))
-            else:
-                np.random.seed(seed)
-            np.random.shuffle(hexcodes)
-    else:
-        assert len(hexcodes) >= dim
+    hexcodes = get_hexcodes(hexcodes, dim, seed, len(adata))
 
     # define colormaps
     cmaps = []
@@ -356,9 +392,9 @@ def plot_rss(adata, title=None):
 
 
 def plot_heatmap(adata: AnnData, figsize: Tuple[int, int]=(5, 7), reorder_comps: bool=False, hexcodes: List[str]=None,
-                 seed: int=None, **kwrgs):
+                 seed: int=None, scaling=True, **kwrgs):
     """
-    Plot heatmap showing the weights of the spatially variable genes for each identified tissue compartment.
+    Plot heatmap showing the weights of spatially variable genes for each identified tissue compartment.
 
     :param adata: The AnnData data matrix of shape `n_obs` × `n_vars`. Rows correspond to cells and columns to genes.
     :param figsize: Figure size as a tuple.
@@ -367,30 +403,21 @@ def plot_heatmap(adata: AnnData, figsize: Tuple[int, int]=(5, 7), reorder_comps:
         weights.
     :param hexcodes: List of hexadecimal colors to replace the default colormap.
     :param seed: Random seed, used for mixing colors.
+    :param scaling: Column-wise scaling (x - mean / std).
     :param kwrgs: Seaborn heatmap keyword arguments.
 
     """
 
     # SVG weights for each compartment
     df = pd.DataFrame(data=adata.uns['chr_aa']['loadings'], columns=adata.uns['chr_pca']['features'])
-    df = df.apply(lambda x: (x-x.mean())/ x.std(), axis=0)
+    if scaling:
+        df = df.apply(lambda x: (x-x.mean())/ x.std(), axis=0)
 
     dim = df.shape[0]
 
     # define compartment colors
     # default colormap with 8 colors
-    if hexcodes is None:
-        if dim > 8:
-            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5)
-        else:
-            hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
-            if seed is None:
-                np.random.seed(len(adata))
-            else:
-                np.random.seed(seed)
-            np.random.shuffle(hexcodes)
-    else:
-        assert len(hexcodes) >= dim
+    hexcodes = get_hexcodes(hexcodes, dim, seed, len(adata))
 
     z = linkage(df.T, method='ward')
     order = leaves_list(z)
@@ -432,7 +459,8 @@ def plot_weights(adata: AnnData, hexcodes: List[str]=None, seed: int=None, compa
     # default colormap with 8 colors
     if hexcodes is None:
         if dim > 8:
-            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5)
+            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5, seed=seed,
+                                              saturation=0.65, lightness=0.60)
         else:
             hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
             if seed is None:
@@ -471,4 +499,105 @@ def plot_weights(adata: AnnData, hexcodes: List[str]=None, seed: int=None, compa
         ax[idx].scatter(y=list(sl.index)[::-1], x=list(sl[c].values)[::-1], color='black', s=15)
         ax[idx].set_xlabel('Weight')
         ax[idx].set_title(f'Compartment {cnum}')
+    plt.tight_layout()
+
+
+
+def plot_svg_matrix(adatas: List[AnnData], figsize: tuple=(5, 4), obs_name: str=None, cluster: bool=False):
+    """
+    Plot the pairwise overlap of spatially variable genes across samples.
+
+    :param adatas: List of AnnData objects containing the 'spatially_variable' column in `.var`.
+    :param figsize: Figure size as a tuple.
+    :param obs_name: `.obs` column containing categorical variables that can be used as a label for each sample.
+    :param cluster: Reorder columns/rows based on hierarchical clustering.
+
+    """
+
+    svg_sets = []
+    labels = []
+    for ad in adatas:
+        gene_names = ad.var[ad.var['spatially_variable'] == True].index
+        svg_sets.append(set(gene_names))
+
+        if obs_name:
+            labels.append(ad.obs[obs_name][0])
+
+    overlaps = np.zeros((len(adatas), len(adatas)))
+
+    for i in range(len(svg_sets)):
+        for j in range(len(svg_sets)):
+            overlap = len(svg_sets[i].intersection(svg_sets[j]))
+            overlaps[i][j] = overlap
+            overlaps[j][i] = overlap
+
+    overlaps = overlaps.astype(int)
+
+    svg_total = list(set().union(*svg_sets))
+
+    if cluster:
+        overlaps_df = pd.DataFrame(data=overlaps)
+        z = linkage(overlaps_df.T, method='ward')
+        order = leaves_list(z)
+        overlaps_df = overlaps_df.iloc[order, order]
+        overlaps = overlaps_df.values
+
+    xlabels = 'auto'
+    ylabels = 'auto'
+
+    if obs_name:
+        if cluster:
+            labels = [labels[i] for i in order]
+        xlabels = labels
+        ylabels = labels
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    sns.heatmap(overlaps, ax=ax, square=True, vmin=0, cmap=sns.color_palette("Spectral_r", as_cmap=True),
+                annot=True, fmt=".0f", xticklabels=xlabels, yticklabels=ylabels)
+
+    ax.set_ylabel('Sample')
+    ax.set_xlabel('Sample')
+    ax.set_title(f'SVG overlaps - Total overlap {len(svg_total)}')
+    # ax.grid(axis='both')
+    ax.set_axisbelow(True)
+    plt.tight_layout()
+
+
+def plot_samples(adata: AnnData, rows: int, cols: int, dim: int, selected_comp: Union[int, str]='all',
+                 sample_col: str='sample', suptitle: str=None, size: float=4.0, show_title: bool=True,
+                 spot_size=4.5, **plot_kw):
+    """
+    Visualize multiple samples from an AnnData object integrated with `chrysalis.integrate_adatas` in a single figure.
+
+    For details see `chrysalis.plot`. Individual compartments can be visualized instead of maximum intensity projection
+    using 'selected_comp'.
+
+    :param adata: The AnnData data matrix of shape `n_obs` × `n_vars`. Rows correspond to cells and columns to genes.
+    :param rows: Number of rows for subplots.
+    :param cols: Number of columns for subplots.
+    :param dim: Number of components to visualize.
+    :param selected_comp: Show only the selected compartment if specified.
+    :param sample_col:
+        The `.obs` column storing the `sample_id` information, 'sample' by default.
+    :param suptitle: Add suptitle to the figure.
+    :param size: Height and width of the individual subplots.
+    :param show_title: Show title using labels from the `.obs` column defined using `sample_col`.
+    :param spot_size: Adjust the final spot size.
+    :param plot_kw: `chrysalis.plot` keyword arguments.
+
+    """
+    assert sample_col in adata.obs.columns
+
+    fig, ax = plt.subplots(rows, cols, figsize=(cols * size, rows * size))
+    ax = ax.flatten()
+    for a in ax:
+        a.axis('off')
+    for idx, i in enumerate(adata.obs[sample_col].cat.categories):
+        plot(adata, dim=dim, sample_id=i, ax=ax[idx], sample_col=sample_col, selected_comp=selected_comp,
+             spot_size=spot_size, **plot_kw)
+        if show_title:
+            obs_df = adata.obs[adata.obs[sample_col] == i]
+            ax[idx].set_title(f'{obs_df[sample_col][0]}')
+    if suptitle is not None:
+        plt.suptitle(suptitle, fontsize=15)
     plt.tight_layout()

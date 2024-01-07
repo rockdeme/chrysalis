@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chrysalis-st"
-version = "0.1.1"
+version = "0.2.0"
 authors = [
   {name="Demeter Túrós"},
 ]
@@ -18,7 +18,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "archetypes",
+    "archetypes==0.4.2",  # last version before PyTorch integration, chrysalis is not using that yet
     "matplotlib",
     "numpy",
     "pandas",

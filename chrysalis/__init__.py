@@ -20,7 +20,10 @@ from .plots import plot_svgs
 from .plots import plot_rss
 from .plots import plot_heatmap
 from .plots import plot_weights
+from .plots import plot_svg_matrix
+from .plots import plot_samples
 
 # utility functions
 from .utils import get_compartment_df
 from .utils import integrate_adatas
+from .utils import harmony_integration

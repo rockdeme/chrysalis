@@ -1,5 +1,7 @@
 # dev and build folders
 data/
+temp/
+.pytest_cache/
 /dist
 /dev
 

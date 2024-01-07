@@ -1,8 +1,7 @@
-[![Stars](https://img.shields.io/github/stars/rockdeme/chrysalis?logo=GitHub&color=yellow)](https://github.com/rockdeme/chrysalis/stargazers)
-[![PyPI](https://img.shields.io/pypi/v/chrysalis-st?logo=PyPI)](https://pypi.org/project/chrysalis-st)
-
 # Welcome to chrysalis!
-
+[![PyPI](https://img.shields.io/pypi/v/chrysalis-st?logo=PyPI)](https://pypi.org/project/chrysalis-st)
+[![Downloads](https://static.pepy.tech/badge/chrysalis-st)](https://pepy.tech/project/chrysalis-st)
+[![Stars](https://img.shields.io/github/stars/rockdeme/chrysalis?logo=GitHub&color=yellow)](https://github.com/rockdeme/chrysalis/stargazers)
 ```{include} ../README.md
 :start-line: 4
 :end-line: 14
@@ -44,6 +43,7 @@ overview/installation
 
 tutorials/lymph_node_tutorial
 tutorials/mouse_brain_integration_tutorial
+tutorials/advanced_integration_tutorial
 ```
 
 ```{toctree}

@@ -2,6 +2,9 @@
    <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/banner.png" width="850">
 </p>
 
+[![PyPI](https://img.shields.io/pypi/v/chrysalis-st?logo=PyPI)](https://pypi.org/project/chrysalis-st)
+[![Downloads](https://static.pepy.tech/badge/chrysalis-st)](https://pepy.tech/project/chrysalis-st)
+
 **chrysalis** is a powerful and lightweight method designed to identify and visualise tissue compartments in spatial 
 transcriptomics datasets, all without the need for external references.
 **chrysalis** achieves this by identifying spatially variable genes (SVGs) through spatial autocorrelation. 

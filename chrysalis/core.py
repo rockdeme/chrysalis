@@ -21,10 +21,14 @@ def detect_svgs(adata: AnnData, min_spots: float=0.05, top_svg: int=1000, min_mo
         The AnnData data matrix of shape `n_obs` × `n_vars`. Rows correspond to cells and columns to genes.
         Spatial data needs to be stored in `.obsm['spatial']` as X and Y coordinate columns.
     :param min_spots: Run calculation only for genes expressed in equal or higher fraction of the total capture spots.
-    :param top_svg: Number of spatially variable genes to keep.
-    :param min_morans: Cutoff using Moran's I. Maximum SVG number defined by `top_svg` won't be affected.
-    :param neighbors: Number of nearest neighbours used for calculating autocorrelation.
-    :param geary: Calculate Geary's C. Selected SVGs are not affect by this, stored in `.var["Geary's C"]`.
+    :param top_svg: Cutoff for top ranked spatially variable genes.
+    :param min_morans:
+        Cutoff using Moran's I. Specifying this parameter does not disable the cutoff set in `top_svg`. The
+        'min_morans' cutoff only activates when the cutoff value retains less genes than specified in `top_svg`.
+    :param neighbors: Number of nearest neighbours used for calculating Moran's I.
+    :param geary:
+        Calculate Geary's C in addition to Moran's I. Selected SVGs are not affect by this, stored
+        in `.var["Geary's C"]`.
     :return:
         Updates `.var` with the following fields:
 
@@ -133,7 +137,7 @@ def pca(adata: AnnData, n_pcs: int=50):
         adata.uns['chr_pca']['features'] = list(adata[:, adata.var['spatially_variable'] == True].var_names)
 
 
-def aa(adata: AnnData, n_archetypes: int=8, n_pcs: int=None):
+def aa(adata: AnnData, n_archetypes: int=8, pca_key: str=None, n_pcs: int=None, max_iter: int=200):
     """
     Run archetypal analysis on the low-dimensional embedding.
 
@@ -142,7 +146,9 @@ def aa(adata: AnnData, n_archetypes: int=8, n_pcs: int=None):
 
     :param adata: The AnnData data matrix of shape `n_obs` × `n_vars`. Rows correspond to cells and columns to genes.
     :param n_archetypes: Number of archetypes (tissue compartments) to be identified.
+    :param pca_key: Define alternative PCA input key from `.obm`, otherwise `chr_X_pca` is used.
     :param n_pcs: Number of PCs (Principal Components) to be used.
+    :param max_iter: Maximum number of iterations.
     :return:
         Updates `.uns` with the following fields:
 
@@ -177,8 +183,13 @@ def aa(adata: AnnData, n_archetypes: int=8, n_pcs: int=None):
     else:
         pcs = n_pcs
 
-    model = arch.AA(n_archetypes=n_archetypes, n_init=3, max_iter=200, tol=0.001, random_state=42)
-    model.fit(adata.obsm['chr_X_pca'][:, :pcs])
+    model = arch.AA(n_archetypes=n_archetypes, n_init=3, max_iter=max_iter, tol=0.001, random_state=42)
+
+    if pca_key is None:
+        model.fit(adata.obsm['chr_X_pca'][:, :pcs])
+    else:
+        model.fit(adata.obsm[pca_key][:, :pcs])
+
     adata.obsm['chr_aa'] = model.alphas_
 
     # get the mean of the original feature matrix and add it to the multiplied archetypes with the PCA loading matrix
