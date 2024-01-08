@@ -3,8 +3,8 @@
 [![Downloads](https://static.pepy.tech/badge/chrysalis-st)](https://pepy.tech/project/chrysalis-st)
 [![Stars](https://img.shields.io/github/stars/rockdeme/chrysalis?logo=GitHub&color=yellow)](https://github.com/rockdeme/chrysalis/stargazers)
 ```{include} ../README.md
-:start-line: 4
-:end-line: 14
+:start-line: 7
+:end-line: 18
 ```
 
 * Discuss **chrysalis** on [GitHub].

@@ -186,6 +186,14 @@ def integrate_adatas(adatas: List[AnnData], sample_names: List[str]=None, calcul
     gene_symbol_dict = {}
     for ad, name in zip(adatas, sample_names):
 
+        # replace .uns['spatial'] with the specified sample name
+        if 'spatial' in ad.uns.keys():
+            assert len(ad.uns['spatial'].keys()) == 1
+            curr_key = list(ad.uns['spatial'].keys())[0]
+            ad.uns['spatial'][name] = ad.uns['spatial'][curr_key]
+            if name != curr_key:
+                del ad.uns['spatial'][curr_key]
+
         # check if column is already used
         if sample_col not in ad.obs.columns:
             ad.obs[sample_col] = name
@@ -253,7 +261,7 @@ def harmony_integration(adata, covariates, input_matrix='chr_X_pca', corrected_m
     :param covariates: String or list of strings containing the covariate columns to integrate over.
     :param input_matrix: Input PCA matrix, by default 'chr_X_pca' is used in `.obsm`.
     :param corrected_matrix: If `corrected_matrix` is defined, a new `.obsm` matrix will be created for the integrated
-    results instead of overwriting the `input_matrix`.
+        results instead of overwriting the `input_matrix`.
     :param harmony_kw: `harmonypy.run_harmony()` keyword arguments.
     :return:
         Replaces `.obsm[input_matrix]` with the corrected one, or saves the new matrix as a new .`.obsm` matrix

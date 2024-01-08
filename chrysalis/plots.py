@@ -7,14 +7,44 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from typing import List, Union, Tuple
 from scipy.spatial.distance import cdist
+from matplotlib.patches import RegularPolygon
+from matplotlib.collections import PatchCollection
 from scipy.cluster.hierarchy import linkage, leaves_list
 from .utils import generate_random_colors, black_to_color, get_rgb_from_colormap, mip_colors, color_to_color, \
     get_compartment_df, get_hexcodes
 
 
+def hex_collection(x, y, c, s, scale_factor, ax, rotation=30, **kwargs):
+    """
+    Scatter plot alternative with proper scaling.
+
+    :param x: rows
+    :param y: columns
+    :param c: color
+    :param s: size
+    :param scale_factor: scale factor
+    :param ax: axis
+    :param rotation: marker rotation in radians
+    :param kwargs: PatchCollection kwargs
+    """
+
+    if scale_factor != 1.0:
+        x = x * scale_factor
+        y = y * scale_factor
+    zipped = np.broadcast(x, y, s)
+
+    patches = [RegularPolygon((x, y), radius=s, numVertices=6, orientation=np.radians(rotation)) for x, y, s in zipped]
+
+    collection = PatchCollection(patches, edgecolor='none', **kwargs)
+    collection.set_facecolor(c)
+
+    ax.add_collection(collection)
+
+
 def plot(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None, sample_id: Union[int, str]=None,
          sample_col: str='sample', spot_size: float=1.05, marker: str='h', figsize: Tuple[int, int]=(5, 5),
-         ax: Axes=None, dpi: int=100, selected_comp: Union[int, str]='all', **scr_kw):
+         ax: Axes=None, dpi: int=100, selected_comp: Union[int, str]='all', rotation: int=0, uns_spatial_key: str=None,
+         **scr_kw):
     """
     Visualize tissue compartments using MIP (Maximum Intensity Projection).
 
@@ -36,6 +66,8 @@ def plot(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None, s
     :param ax: Draw plot on a specific Matplotlib axes instead of a figure if specified.
     :param dpi: Optional DPI value used when `ax` is specified.
     :param selected_comp: Show only the selected compartment if specified.
+    :param rotation: Rotate markers for alternative lattice arrangements.
+    :param uns_spatial_key: Alternative key in .uns['spatial'] storing spot size and scaling factor.
     :param scr_kw: Matplotlib scatterplot keyword arguments.
 
     Example usage:
@@ -103,6 +135,7 @@ def plot(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None, s
         adata = adata[adata.obs[sample_col] == sample_id]
 
     if ax is None:
+        # todo: update this part with hex_collection
         # plot
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         ax.axis('off')
@@ -113,6 +146,7 @@ def plot(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None, s
         ax.set_xlim((np.min(row) - 0.1 * row_range, np.max(row) + 0.1 * row_range))
         ax.set_ylim((np.min(col) - 0.1 * col_range, np.max(col) + 0.1 * col_range))
         ax.set_aspect('equal')
+
 
         # takes long time to compute the pairwise distance matrix for stereo-seq or slide-seq samples, so by looking at
         # only 5000 spots is a good enough approximation
@@ -129,43 +163,33 @@ def plot(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None, s
         size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
         size = size_const ** 2 * spot_size
         plt.scatter(row, col, s=size, marker=marker, c=cblend, **scr_kw)
+
     else:
+        if sample_id not in adata.uns['spatial'].keys():
+            size = 1
+            raise Warning("Sample ID is not found in adata.uns['spatial']. Make sure that the provided sample id column"
+                          "is the same as the sample ID in .uns.")
+        else:
+            size = adata.uns['spatial'][sample_id]['scalefactors']['spot_diameter_fullres']
+            scale_factor = adata.uns['spatial'][sample_id]['scalefactors']['tissue_hires_scalef']
+
+        if uns_spatial_key != None:
+            sample_id = uns_spatial_key
+
         row = adata.obsm['spatial'][:, 0]
         col = adata.obsm['spatial'][:, 1] * -1
         row_range = np.ptp(row)
         col_range = np.ptp(col)
         xrange = (np.min(row) - 0.1 * row_range, np.max(row) + 0.1 * row_range)
         yrange = (np.min(col) - 0.1 * col_range, np.max(col) + 0.1 * col_range)
+        xrange = tuple(np.array(xrange) * scale_factor)
+        yrange = tuple(np.array(yrange) * scale_factor)
         ax.set_xlim(xrange)
         ax.set_ylim(yrange)
         ax.set_aspect('equal')
 
-        # takes long time to compute the pairwise distance matrix for stereo-seq or slide-seq samples, so by looking at
-        # only 5000 spots is a good enough approximation
-        if len(row) < 5000:
-            distances = cdist(np.column_stack((row, col)), np.column_stack((row, col)))
-        else:
-            distances = cdist(np.column_stack((row[:5000], col[:5000])), np.column_stack((row[:5000], col[:5000])))
-
-        np.fill_diagonal(distances, np.inf)
-        min_distance = np.min(distances)
-
-        if row_range > col_range:
-            ax_len = np.diff(ax.get_xlim())[0]
-            bbox = ax.get_position()
-            width_in_points = bbox.width * figsize[0] * dpi
-            diameter = (min_distance / 2) / ax_len
-            diam_points = width_in_points * diameter
-            diam_points = diam_points ** 2 * 2 * spot_size
-        else:
-            ax_len = np.diff(ax.get_ylim())[0]
-            bbox = ax.get_position()
-            width_in_points = bbox.height * figsize[1] * dpi
-            diameter = (min_distance / 2) / ax_len
-            diam_points = width_in_points * diameter
-            diam_points = diam_points ** 2 * 2 * spot_size
-
-        ax.scatter(row, col, s=diam_points, marker=marker, c=cblend, **scr_kw)
+        circle_radius = spot_size * scale_factor * size * 0.5
+        hex_collection(row, col, cblend, circle_radius, scale_factor, ax, rotation=rotation)
 
 
 def plot_compartment(adata: AnnData, fig: plt.figure, ax: plt.axis, selected_dim: int, dim: int=8,
@@ -564,8 +588,8 @@ def plot_svg_matrix(adatas: List[AnnData], figsize: tuple=(5, 4), obs_name: str=
 
 
 def plot_samples(adata: AnnData, rows: int, cols: int, dim: int, selected_comp: Union[int, str]='all',
-                 sample_col: str='sample', suptitle: str=None, size: float=4.0, show_title: bool=True,
-                 spot_size=4.5, **plot_kw):
+                 sample_col: str='sample', suptitle: str=None, plot_size: float=4.0, show_title: bool=True,
+                 spot_size=2, rotation=0, **plot_kw):
     """
     Visualize multiple samples from an AnnData object integrated with `chrysalis.integrate_adatas` in a single figure.
 
@@ -580,21 +604,22 @@ def plot_samples(adata: AnnData, rows: int, cols: int, dim: int, selected_comp: 
     :param sample_col:
         The `.obs` column storing the `sample_id` information, 'sample' by default.
     :param suptitle: Add suptitle to the figure.
-    :param size: Height and width of the individual subplots.
+    :param plot_size: Height and width of the individual subplots.
     :param show_title: Show title using labels from the `.obs` column defined using `sample_col`.
     :param spot_size: Adjust the final spot size.
+    :param rotation: Rotate markers for alternative lattice arrangements.
     :param plot_kw: `chrysalis.plot` keyword arguments.
 
     """
     assert sample_col in adata.obs.columns
 
-    fig, ax = plt.subplots(rows, cols, figsize=(cols * size, rows * size))
+    fig, ax = plt.subplots(rows, cols, figsize=(cols * plot_size, rows * plot_size))
     ax = ax.flatten()
     for a in ax:
         a.axis('off')
     for idx, i in enumerate(adata.obs[sample_col].cat.categories):
         plot(adata, dim=dim, sample_id=i, ax=ax[idx], sample_col=sample_col, selected_comp=selected_comp,
-             spot_size=spot_size, **plot_kw)
+             spot_size=spot_size, rotation=rotation, **plot_kw)
         if show_title:
             obs_df = adata.obs[adata.obs[sample_col] == i]
             ax[idx].set_title(f'{obs_df[sample_col][0]}')

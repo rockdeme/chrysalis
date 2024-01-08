@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath("../.."))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'chrysalis'
-copyright = '2023, Demeter Túrós'
+copyright = '2024, Demeter Túrós'
 author = 'Demeter Túrós'
 release = '2023'
 
@@ -45,6 +45,8 @@ html_theme_options = {"logo_only": True}
 html_css_files = ['css/custom.css']
 
 html_js_files = ['js/custom.js']
+
+html_title = 'chrysalis 0.2.0'
 
 autodoc_exclude_members = {
     'chrysalis.core': ['detect_svgs', 'pca', 'aa'],

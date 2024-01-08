@@ -38,6 +38,7 @@ Visualizations to examine the identified compartments in the tissue space.
    :toctree: generated/
 
    plot
+   plot_samples
    plot_compartment
    plot_compartments
 ```
@@ -75,5 +76,6 @@ Sample interation, spatially variable gene contributions.
    :toctree: generated/
 
    integrate_adatas
+   harmony_integration
    get_compartment_df
 ```
