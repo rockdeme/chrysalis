@@ -23,6 +23,9 @@ def preprocess_sample():
 
             ch.detect_svgs(adata)
 
+            moran_df = adata.var[adata.var["Moran's I"] > 0.08]
+            adata.var['spatially_variable'] = [True if x in moran_df.index else False for x in adata.var_names]
+
             adata.write_h5ad(f'temp/V1_Human_Lymph_Node_ss.h5ad')
 
     return adata
@@ -118,7 +121,7 @@ def test_multi_sample_harmony(save=True):
 
     ch.aa(adata, n_pcs=20, n_archetypes=10)
 
-    ch.plot_samples(adata, 1, 2, dim=10, suptitle='test', spot_size=4.5)
+    ch.plot_samples(adata, 1, 2, dim=10, suptitle='test')
     save_plot(save, name='multiplot_mip_harmony')
 
     ch.plot_samples(adata, 1, 2, dim=10, suptitle='test', selected_comp=0)
@@ -140,7 +143,7 @@ def test_multi_sample_scanorama(save=True):
     ch.pca(adata, n_pcs=50)
     ch.aa(adata, n_pcs=20, n_archetypes=10)
 
-    ch.plot_samples(adata, 1, 2, dim=10, suptitle='test', spot_size=4.5)
+    ch.plot_samples(adata, 1, 2, dim=10, suptitle='test')
     save_plot(save, name='multiplot_mip_scanorama')
 
     ch.plot_samples(adata, 1, 2, dim=10, suptitle='test', selected_comp=0)
@@ -174,7 +177,19 @@ if __name__ == '__main__':
     script_directory = os.path.dirname(os.path.abspath(__file__))
     os.chdir(script_directory)
 
+    print(f'Temporary files and plots are saved to the following directory: {script_directory}')
+
+    print('Running test_single_sample...')
     test_single_sample(save=True)
+    print('Test completed!')
+    print('Running test_multi_sample_harmony...')
     test_multi_sample_harmony(save=True)
+    print('Test completed!')
+    print('Running test_multi_sample_scanorama...')
     test_multi_sample_scanorama(save=True)
+    print('Test completed!')
+    print('Running test_multi_sample_plots...')
     test_multi_sample_plots(save=True)
+    print('Test completed!')
+    print('------------------------------')
+    print('All tests have been completed!')

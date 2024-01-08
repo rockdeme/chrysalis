@@ -232,7 +232,7 @@ def integrate_adatas(adatas: List[AnnData], sample_names: List[str]=None, calcul
 
     # save sample-wise spatially_variable and Morans's I columns
     sv_cols = [x for x in adata.var.columns if 'spatially_variable_' in x]
-    adata.varm['spatially_variable'] = adata.var[sv_cols]
+    adata.varm['spatially_variable'] = adata.var[sv_cols].copy()
     if 'gene_ids' in adata.var.columns:
         adata.varm['spatially_variable']['gene_ids'] = adata.var['gene_ids']
     if 'gene_symbols' in adata.var.columns:
@@ -240,7 +240,7 @@ def integrate_adatas(adatas: List[AnnData], sample_names: List[str]=None, calcul
     adata.var = adata.var.drop(columns=sv_cols)
 
     mi_cols = [x for x in adata.var.columns if "Moran's I_" in x]
-    adata.varm["Moran's I"] = adata.var[mi_cols]
+    adata.varm["Moran's I"] = adata.var[mi_cols].copy()
     if 'gene_ids' in adata.var.columns:
         adata.varm["Moran's I"]['gene_ids'] = adata.var['gene_ids']
     if 'gene_symbols' in adata.var.columns:

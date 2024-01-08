@@ -2,9 +2,12 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# for testing use pip install --index-url=https://test.pypi.org/simple/
+# --extra-index-url=https://pypi.org/simple/ chrysalis-st==x.x.x
+
 [project]
 name = "chrysalis-st"
-version = "0.2.0"
+version = "0.2.1b"
 authors = [
   {name="Demeter Túrós"},
 ]
@@ -24,7 +27,7 @@ dependencies = [
     "pandas",
     "pysal",
     "scanpy",
-    "scikit_learn",
+    "scikit-learn",
     "scipy",
     "tqdm",
     "seaborn",
@@ -43,5 +46,7 @@ exclude = [
     "/docs",
     "/misc",
     "/plots",
+    "/article",
+    "/gallery",
     ".readthedocs.yaml",
 ]
