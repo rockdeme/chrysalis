@@ -3,6 +3,7 @@ data/
 temp/
 .pytest_cache/
 /dist
+/dist_archive
 /dev
 
 # IDE

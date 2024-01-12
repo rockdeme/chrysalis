@@ -1,10 +1,9 @@
 # Chrysalis Article Readme
 
 
-The collection of notebooks and scripts found in this folder was utilized for our research article. 
-It serves the purpose of demonstrating the data analysis we performed. To replicate the analysis, 
-supplementary actions are necessary, such as acquiring the raw data, modifying fixed directory paths, 
-downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.8247780), and so on. 
+This folder contains the notebooks and scripts used for our research article, showcasing the data analysis we conducted.
+To recreate the analysis, you'll need to take some extra steps, such as getting the raw data, adjusting directory paths,
+and downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.8247780).
 ```
 .
 ├── 1_human_lymph_node

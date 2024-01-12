@@ -164,7 +164,7 @@ def test_multi_sample_plots(save=True):
     ch.plot_svg_matrix(adatas, figsize=(8, 7), obs_name='sample', cluster=True)
     save_plot(save, name='multiplot_svg_matrix')
 
-    ch.plot_samples(adata, 1, 2, dim=10, suptitle='test', spot_size=4.5)
+    ch.plot_samples(adata, 1, 2, dim=10, suptitle='test')
     save_plot(save, name='multiplot_mip')
 
     ch.plot_samples(adata, 1, 2, dim=10, suptitle='test', selected_comp=0)
