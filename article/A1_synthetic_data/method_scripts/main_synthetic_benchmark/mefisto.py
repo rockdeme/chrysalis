@@ -1,4 +1,3 @@
-import os
 import mofax
 import pandas as pd
 import scanpy as sc
@@ -7,10 +6,10 @@ from glob import glob
 import seaborn as sns
 import matplotlib.pyplot as plt
 from mofapy2.run.entry_point import entry_point
-from article.I_synthetic_data.bm_functions import get_correlation_df
+from article.A1_synthetic_data.bm_functions import get_correlation_df
 
 
-filepath = '/storage/homefs/pt22a065/chr_data/tabula_sapiens_immune_contamination'
+filepath = '/storage/homefs/pt22a065/chr_data/tabula_sapiens_immune'
 adatas = glob(filepath + '/*/*.h5ad')
 
 results_df = pd.DataFrame()
@@ -18,14 +17,6 @@ results_df = pd.DataFrame()
 for idx, adp in tqdm(enumerate(adatas), total=len(adatas)):
     print(adp)
     sample_folder = '/'.join(adp.split('/')[:-1]) + '/'
-
-    # Check if all necessary output files already exist in the sample_folder
-    if (os.path.exists(sample_folder + 'mefisto_comps.csv') and
-            os.path.exists(sample_folder + 'mefisto_pearson.csv') and
-            os.path.exists(sample_folder + 'mefisto_corr_heatmap.png')):
-        print(f"Skipping {sample_folder} as output files already exist.")
-        continue
-
     adata = sc.read_h5ad(adp)
 
     # number of non-uniform compartments
@@ -53,7 +44,7 @@ for idx, adp in tqdm(enumerate(adatas), total=len(adatas)):
     ent.set_train_options(seed=2021)
 
     # We use 1000 inducing points to learn spatial covariance patterns
-    n_inducing = 1000  # 500 for size tests
+    n_inducing = 500  # 500 for size tests
 
     ent.set_covariates([adata.obsm["spatial"]], covariates_names=["imagerow", "imagecol"])
     ent.set_smooth_options(sparseGP=True, frac_inducing=n_inducing / adata.n_obs,

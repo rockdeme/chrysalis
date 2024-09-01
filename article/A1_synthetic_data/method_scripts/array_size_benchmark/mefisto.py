@@ -6,10 +6,10 @@ from glob import glob
 import seaborn as sns
 import matplotlib.pyplot as plt
 from mofapy2.run.entry_point import entry_point
-from article.I_synthetic_data.bm_functions import get_correlation_df
+from article.A1_synthetic_data.bm_functions import get_correlation_df
 
 
-filepath = '/storage/homefs/pt22a065/chr_data/tabula_sapiens_immune'
+filepath = '/storage/homefs/pt22a065/chr_data/tabula_sapiens_immune_size'
 adatas = glob(filepath + '/*/*.h5ad')
 
 results_df = pd.DataFrame()

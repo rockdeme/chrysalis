@@ -6,10 +6,10 @@ import seaborn as sns
 from glob import glob
 import chrysalis as ch
 import matplotlib.pyplot as plt
-from article.I_synthetic_data.bm_functions import get_correlation_df
+from article.A1_synthetic_data.bm_functions import get_correlation_df
 
 
-filepath = 'data/tabula_sapiens_immune_size'
+filepath = 'data/tabula_sapiens_immune'
 adatas = glob(filepath + '/*/*.h5ad')
 
 results_df = pd.DataFrame()

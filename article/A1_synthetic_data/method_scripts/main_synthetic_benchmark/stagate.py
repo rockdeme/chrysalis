@@ -6,7 +6,7 @@ from glob import glob
 import seaborn as sns
 import sklearn.neighbors
 import matplotlib.pyplot as plt
-from article.I_synthetic_data.bm_functions import get_correlation_df
+from article.A1_synthetic_data.bm_functions import get_correlation_df
 
 
 filepath = 'data/tabula_sapiens_immune'

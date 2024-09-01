@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import pandas as pd
 import scanpy as sc
@@ -7,10 +6,10 @@ import seaborn as sns
 from glob import glob
 import chrysalis as ch
 import matplotlib.pyplot as plt
-from article.I_synthetic_data.bm_functions import get_correlation_df
+from article.A1_synthetic_data.bm_functions import get_correlation_df
 
 
-filepath = 'data/tabula_sapiens_immune_contamination'
+filepath = 'data/tabula_sapiens_immune_size'
 adatas = glob(filepath + '/*/*.h5ad')
 
 results_df = pd.DataFrame()
@@ -18,17 +17,6 @@ results_df = pd.DataFrame()
 for idx, adp in tqdm(enumerate(adatas), total=len(adatas)):
     print(adp)
     sample_folder = '/'.join(adp.split('/')[:-1]) + '/'
-
-    # Check if all necessary output files already exist in the sample_folder
-    if (os.path.exists(sample_folder + 'ch_svgs.png') and
-            os.path.exists(sample_folder + 'ch_expl_variance.png') and
-            os.path.exists(sample_folder + 'ch_plot.png') and
-            os.path.exists(sample_folder + 'ch_comps.png') and
-            os.path.exists(sample_folder + 'pearson.csv') and
-            os.path.exists(sample_folder + 'corr_heatmap.png')):
-        print(f"Skipping {sample_folder} as output files already exist.")
-        continue
-
     adata = sc.read_h5ad(adp)
 
     # number of non-uniform compartments
@@ -37,26 +25,21 @@ for idx, adp in tqdm(enumerate(adatas), total=len(adatas)):
     tissue_zones = int(tissue_zones)
 
     # chrysalis pipeline
-    ch.detect_svgs(adata, neighbors=8, top_svg=1000, min_morans=-1)
+    ch.detect_svgs(adata, neighbors=8, top_svg=1000, min_morans=0.01)
     ch.plot_svgs(adata)
     plt.savefig(sample_folder + 'ch_svgs.png')
     plt.close()
 
     sc.pp.normalize_total(adata, inplace=True)
     sc.pp.log1p(adata)
-    svg_num = len(adata.var[adata.var['spatially_variable'] == True])
-    if svg_num < 40:
-        ch.pca(adata, n_pcs=svg_num - 1)
-    else:
-        ch.pca(adata, n_pcs=40)
+
+    ch.pca(adata, n_pcs=40)
 
     ch.plot_explained_variance(adata)
     plt.savefig(sample_folder + 'ch_expl_variance.png')
     plt.close()
-    if svg_num < 20:
-        ch.aa(adata, n_pcs=svg_num, n_archetypes=tissue_zones)
-    else:
-        ch.aa(adata, n_pcs=20, n_archetypes=tissue_zones)
+
+    ch.aa(adata, n_pcs=20, n_archetypes=tissue_zones)
 
     ch.plot(adata, dim=tissue_zones, marker='s')
     plt.savefig(sample_folder + 'ch_plot.png')

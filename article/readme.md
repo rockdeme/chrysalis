@@ -6,7 +6,7 @@ To recreate the analysis, you'll need to take some extra steps, such as getting 
 and downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.8247780).
 ```
 .
-├── I_synthetic_data
+├── A1_synthetic_data
 │   ├── array_size_benchmark.ipynb
 │   ├── bm_functions.py
 │   ├── chrysalis_example.ipynb
@@ -37,7 +37,7 @@ and downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.
 │           ├── mefisto.py
 │           ├── nsf.py
 │           └── stagate.py
-├── II_human_lymph_node
+├── A2_human_lymph_node
 │   ├── SVG_detection_methods
 │   │   ├── 1_bsp_spatialde_sepal.ipynb
 │   │   ├── 2_spark.R
@@ -50,7 +50,7 @@ and downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.
 │   │   └── stagate.py
 │   ├── chrysalis_analysis_and_validation.ipynb
 │   └── morans_i.ipynb
-├── III_human_breast_cancer
+├── A3_human_breast_cancer
 │   ├── benchmarking
 │   │   ├── graphst.py
 │   │   ├── mefisto.py
@@ -63,7 +63,7 @@ and downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.
 │       ├── 1_extract_image_tiles.ipynb
 │       ├── 2_autoencoder_training.py
 │       └── 3_integrate_morphology.ipynb
-├── IV_mouse_brain
+├── A4_mouse_brain
 │   ├── ff
 │   │   ├── mouse_brain_ff.ipynb
 │   │   └── mouse_brain_integration.ipynb
@@ -76,11 +76,11 @@ and downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.
 │       ├── map_annotations.py
 │       ├── mouse_brain_ffpe.ipynb
 │       └── mouse_brain_ffpe_benchmark.ipynb
-├── V_visium_hd
+├── A5_visium_hd
 │   └── visium_hd_analysis.ipynb
-├── VI_slide_seqv2
+├── A6_slide_seqv2
 │   └── slide_seqv2_analysis.ipynb
-├── VII_stereo_seq
+├── A7_stereo_seq
 │   └── stereo_seq_analysis.ipynb
 └── readme.md
 ```
@@ -89,10 +89,13 @@ and downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.
 
 **Authors**: Demeter Túrós, Jelica Vasiljevic, Kerstin Hahn, Sven Rottenberg, and Alberto Valdeolivas
 
-**Abstract**: Dissecting tissue compartments in spatial transcriptomics (ST) remains challenging due 
-to limited spatial resolution and dependence on single-cell reference data. We present Chrysalis, a 
-novel method to rapidly detect tissue compartments through spatially variable gene (SVG) detection 
-and archetypal analysis without external references. We applied Chrysalis on ST datasets originating 
-from various species, tissues and technologies and demonstrated state-of-the-art performance in 
-identifying cellular niches.
-
+**Abstract**: Dissecting tissue compartments in spatial transcriptomics (ST) remains challenging due to 
+limited spatial resolution and dependence on single-cell reference data. We present Chrysalis, a novel 
+computational method that rapidly uncovers tissue compartments through spatially variable gene (SVG) 
+detection and archetypal analysis without requiring external reference data. Additionally, it offers a 
+unique visualisation approach for swift tissue characterization and provides access to gene expression 
+signatures, enabling the identification of spatially and functionally distinct cellular niches. Chrysalis 
+was evaluated through various benchmarks and validated against deconvolution, independently obtained cell 
+type abundance data, and histopathological annotations, demonstrating superior performance compared to 
+other algorithms on both in silico and real-world test examples. Furthermore, we underscored its versatility 
+across different technologies, such as Visium, Visium HD, Slide-seq, and Stereo-seq.

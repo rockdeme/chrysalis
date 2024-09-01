@@ -12,7 +12,7 @@ from nsf.models import sf
 import matplotlib.pyplot as plt
 from numpy.linalg import LinAlgError
 from tensorflow_probability import math as tm
-from article.I_synthetic_data.bm_functions import get_correlation_df
+from article.A1_synthetic_data.bm_functions import get_correlation_df
 from nsf.utils import preprocess, training, visualize, postprocess, misc
 
 
