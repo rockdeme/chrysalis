@@ -1,4 +1,5 @@
 import math
+import warnings
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -14,7 +15,7 @@ from .utils import generate_random_colors, black_to_color, get_rgb_from_colormap
     get_compartment_df, get_hexcodes
 
 
-def hex_collection(x, y, c, s, scale_factor, ax, rotation=30, **kwargs):
+def hex_collection(x, y, c, s, scale_factor, ax, rotation=30, marker='h', **kwargs):
     """
     Scatter plot alternative with proper scaling.
 
@@ -33,8 +34,12 @@ def hex_collection(x, y, c, s, scale_factor, ax, rotation=30, **kwargs):
         y = y * scale_factor
     zipped = np.broadcast(x, y, s)
 
-    patches = [RegularPolygon((x, y), radius=s, numVertices=6, orientation=np.radians(rotation)) for x, y, s in zipped]
-
+    if marker == 'h':
+        patches = [RegularPolygon((x, y), radius=s, numVertices=6, orientation=np.radians(rotation)) for x, y, s in zipped]
+    elif marker == 's':
+        patches = [RegularPolygon((x, y), radius=s, numVertices=4, orientation=np.radians(rotation)) for x, y, s in zipped]
+    else:
+        raise Exception("No valid marker type was defined ('h', 's')")
     collection = PatchCollection(patches, edgecolor='none', **kwargs)
     collection.set_facecolor(c)
 
@@ -125,6 +130,7 @@ def plot(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None, s
         cblend = pc_rgb
 
 
+    # todo: this can raise error when we have one sample with the default sample coulmn already defined, needs fix
     if sample_col in adata.obs.columns and sample_id is None:
         if sample_id not in adata.obs['sample'].cat.categories:
             raise ValueError(f"Invalid sample_id. Check categories in .obs['{sample_col}']")
@@ -189,12 +195,13 @@ def plot(adata: AnnData, dim: int=8, hexcodes: List[str]=None, seed: int=None, s
         ax.set_aspect('equal')
 
         circle_radius = spot_size * scale_factor * size * 0.5
-        hex_collection(row, col, cblend, circle_radius, scale_factor, ax, rotation=rotation)
+        hex_collection(row, col, cblend, circle_radius, scale_factor, ax, marker=marker, rotation=rotation, **scr_kw)
 
 
 def plot_compartment(adata: AnnData, fig: plt.figure, ax: plt.axis, selected_dim: int, dim: int=8,
-                     hexcodes: List[str]=None, seed: int=None, color_first: str='black',
-                     sample_id: Union[int, str]=None, spot_size: float=1.05, marker: str='h', **scr_kw):
+                     hexcodes: List[str]=None, seed: int=None, color_first: str='black', rotation: Union[int, float]=0,
+                     sample_id: Union[int, str]=None, spot_size: float=1.05, marker: str='h', backend='patch_collection',
+                     **scr_kw):
     """
     Visualize individual tissue compartments.
 
@@ -251,16 +258,48 @@ def plot_compartment(adata: AnnData, fig: plt.figure, ax: plt.axis, selected_dim
     np.fill_diagonal(distances, np.inf)
     min_distance = np.min(distances)
 
-    # get the physical length of the x and y axes
-    ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
-    size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
-    size = size_const ** 2 * spot_size
-    ax.scatter(row, col, s=size, marker=marker, c=adata.obsm['cmap'], **scr_kw)
+    # patch collection struggles with a large number of spots, improve this later
+    if backend == 'patch_collection':
+        # INTRODUCED HEX COLLECTION HERE
+        size = 1
+        scale_factor = 1
+        if 'spatial' in adata.uns.keys():
+            if sample_id not in adata.uns['spatial'].keys():
+                warnings.warn("Sample ID is not found in adata.uns['spatial']. Make sure that the provided sample id column"
+                              "is the same as the sample ID in .uns.")
+            else:
+                size = adata.uns['spatial'][sample_id]['scalefactors']['spot_diameter_fullres']
+                scale_factor = adata.uns['spatial'][sample_id]['scalefactors']['tissue_hires_scalef']
+
+        row = adata.obsm['spatial'][:, 0]
+        col = adata.obsm['spatial'][:, 1] * -1
+        row_range = np.ptp(row)
+        col_range = np.ptp(col)
+        xrange = (np.min(row) - 0.1 * row_range, np.max(row) + 0.1 * row_range)
+        yrange = (np.min(col) - 0.1 * col_range, np.max(col) + 0.1 * col_range)
+        xrange = tuple(np.array(xrange) * scale_factor)
+        yrange = tuple(np.array(yrange) * scale_factor)
+        ax.set_xlim(xrange)
+        ax.set_ylim(yrange)
+        ax.set_aspect('equal')
+
+        circle_radius = spot_size * scale_factor * size * 0.5
+        hex_collection(row, col, adata.obsm['cmap'], circle_radius, scale_factor, ax, marker=marker,
+                       rotation=rotation, **scr_kw)
+    elif backend == 'scatter':
+        # get the physical length of the x and y axes
+        ax_len = np.diff(np.array(ax.get_position())[:, 0]) * fig.get_size_inches()[0]
+        size_const = ax_len / np.diff(ax.get_xlim())[0] * min_distance * 72
+        size = size_const ** 2 * spot_size
+        ax.scatter(row, col, s=size, marker=marker, c=adata.obsm['cmap'], **scr_kw)
+    else:
+        raise Exception("Invalid backend ('patch_collection', 'scatter').")
 
 
 def plot_compartments(adata: AnnData, ncols: int=2, size: int=3, sample_id: Union[int, str]=None,
+                      sample_col: str='sample', rotation: Union[int, float]=0,
                       spot_size: float=0.85, hexcodes: List[str]=None, title_size: int=10, seed: int=None,
-                      marker: str='h', **scr_kw):
+                      marker: str='h', backend='patch_collection', **scr_kw):
     """
     Visualize all compartments as individual subplots.
 
@@ -281,7 +320,7 @@ def plot_compartments(adata: AnnData, ncols: int=2, size: int=3, sample_id: Unio
     assert ndims / ncols >= 1
     nrows = math.ceil(ndims / ncols)
 
-    if 'sample' in adata.obs.columns and sample_id is None:
+    if sample_col in adata.obs.columns and sample_id is None:
         if sample_id not in adata.obs['sample'].cat.categories:
             raise ValueError("Invalid sample_id. Check categories in .obs['sample']")
         raise ValueError("Integrated dataset. Cannot proceed without a specified sample_id")
@@ -293,7 +332,8 @@ def plot_compartments(adata: AnnData, ncols: int=2, size: int=3, sample_id: Unio
     plt.subplots_adjust(hspace=0.05, wspace=0.01, left=0.05, right=0.95, top=0.95, bottom=0.05)
     for i in range(ndims):
         plot_compartment(adata, fig, axs[i], dim=ndims, selected_dim=i, color_first='#2e2e2e', spot_size=spot_size,
-                       sample_id=sample_id, hexcodes=hexcodes, seed=seed, marker=marker, **scr_kw)
+                         sample_id=sample_id, hexcodes=hexcodes, seed=seed, marker=marker, rotation= rotation,
+                         backend=backend, **scr_kw)
         axs[i].set_title(f'Compartment {i}', size=title_size)
 
 
@@ -324,7 +364,7 @@ def plot_explained_variance(adata: AnnData):
     plt.tight_layout()
 
 
-def plot_svgs(adata: AnnData):
+def plot_svgs(adata: AnnData, figsize=(4, 4)):
     """
     Plot a rank-order chart displaying the Moran's I values.
 
@@ -335,7 +375,7 @@ def plot_svgs(adata: AnnData):
     morans_df = adata.var["Moran's I"].sort_values(ascending=False)
     morans_df = morans_df.dropna()
 
-    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
     sns.lineplot(list(morans_df), linewidth=2, color='#8b33ff')
     ax.grid(axis='both', linestyle='-', linewidth='0.5', color='grey')
     ax.set_axisbelow(True)
@@ -524,7 +564,6 @@ def plot_weights(adata: AnnData, hexcodes: List[str]=None, seed: int=None, compa
         ax[idx].set_xlabel('Weight')
         ax[idx].set_title(f'Compartment {cnum}')
     plt.tight_layout()
-
 
 
 def plot_svg_matrix(adatas: List[AnnData], figsize: tuple=(5, 4), obs_name: str=None, cluster: bool=False):

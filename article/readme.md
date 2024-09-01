@@ -6,7 +6,38 @@ To recreate the analysis, you'll need to take some extra steps, such as getting 
 and downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.8247780).
 ```
 .
-├── 1_human_lymph_node
+├── I_synthetic_data
+│   ├── array_size_benchmark.ipynb
+│   ├── bm_functions.py
+│   ├── chrysalis_example.ipynb
+│   ├── contamination_benchmark.ipynb
+│   ├── data_generator
+│   │   ├── functions.py
+│   │   ├── generate_synthetic_datasets.py
+│   │   ├── generate_truncated_samples.py
+│   │   ├── tissue_generator.py
+│   │   └── tools.py
+│   ├── main_synthetic_benchmark.ipynb
+│   └── method_scripts
+│       ├── array_size_benchmark
+│       │   ├── chrysalis.py
+│       │   ├── graphst.py
+│       │   ├── mefisto.py
+│       │   ├── nsf.py
+│       │   └── stagate.py
+│       ├── contamination_benchmark
+│       │   ├── chrysalis.py
+│       │   ├── graphst.py
+│       │   ├── mefisto.py
+│       │   ├── nsf.py
+│       │   └── stagate.py
+│       └── main_synthetic_benchmark
+│           ├── chrysalis.py
+│           ├── graphst.py
+│           ├── mefisto.py
+│           ├── nsf.py
+│           └── stagate.py
+├── II_human_lymph_node
 │   ├── SVG_detection_methods
 │   │   ├── 1_bsp_spatialde_sepal.ipynb
 │   │   ├── 2_spark.R
@@ -19,7 +50,7 @@ and downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.
 │   │   └── stagate.py
 │   ├── chrysalis_analysis_and_validation.ipynb
 │   └── morans_i.ipynb
-├── 2_human_breast_cancer
+├── III_human_breast_cancer
 │   ├── benchmarking
 │   │   ├── graphst.py
 │   │   ├── mefisto.py
@@ -32,12 +63,24 @@ and downloading supplementary files from Zenodo (https://doi.org/10.5281/zenodo.
 │       ├── 1_extract_image_tiles.ipynb
 │       ├── 2_autoencoder_training.py
 │       └── 3_integrate_morphology.ipynb
-├── 3_mouse_brain
-│   ├── mouse_brain_analysis.ipynb
-│   └── mouse_brain_integration.ipynb
-├── 4_slide_seqv2
+├── IV_mouse_brain
+│   ├── ff
+│   │   ├── mouse_brain_ff.ipynb
+│   │   └── mouse_brain_integration.ipynb
+│   └── ffpe
+│       ├── benchmark
+│       │   ├── graphst.py
+│       │   ├── mefisto.py
+│       │   ├── nsf.py
+│       │   └── stagate.py
+│       ├── map_annotations.py
+│       ├── mouse_brain_ffpe.ipynb
+│       └── mouse_brain_ffpe_benchmark.ipynb
+├── V_visium_hd
+│   └── visium_hd_analysis.ipynb
+├── VI_slide_seqv2
 │   └── slide_seqv2_analysis.ipynb
-├── 5_stereo_seq
+├── VII_stereo_seq
 │   └── stereo_seq_analysis.ipynb
 └── readme.md
 ```

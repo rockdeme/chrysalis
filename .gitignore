@@ -12,3 +12,6 @@ temp/
 
 # temp
 functions.py
+
+# misc
+.paquo.toml

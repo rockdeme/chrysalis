@@ -78,7 +78,6 @@ visualize.plot_loss(tro.loss,title=ttl)#,ss=range(2000,4000))
 plt.show()
 
 # Postprocessing
-
 hmkw = {"figsize":(4,4), "s":0.3, "marker":"D", "subplot_space":0,
         "spinecolor":"white"}
 insf = postprocess.interpret_nsf(fit,Xtr,S=10,lda_mode=False)
