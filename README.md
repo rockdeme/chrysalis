@@ -16,7 +16,7 @@ distinct compartments.
 of diverse tissue compartments.
 Moreover, it seamlessly integrates into `scanpy` based pipelines.
 
-If you like **chrysalis**, consider citing our [preprint](https://github.com/rockdeme/chrysalis/#reference).
+If you like **chrysalis**, consider citing our [publication](https://github.com/rockdeme/chrysalis/#reference).
 
 <p align="center">
    <img src="https://raw.githubusercontent.com/rockdeme/chrysalis/master/misc/panel_1.png" width=800">
@@ -90,5 +90,5 @@ plt.show()
 ## Reference
 
 **Chrysalis: decoding tissue compartments in spatial transcriptomics with archetypal analysis**  
-*Demeter Turos, Jelica Vasiljevic, Kerstin Hahn, Sven Rottenberg, Alberto Valdeolivas*  
-doi: https://doi.org/10.1101/2023.08.17.553606
+*Demeter Túrós, Jelica Vasiljevic, Kerstin Hahn, Sven Rottenberg, Alberto Valdeolivas* Communications Biology 7.1 (2024): 1520.
+https://www.nature.com/articles/s42003-024-07165-7
