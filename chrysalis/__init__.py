@@ -10,6 +10,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 from .core import detect_svgs
 from .core import pca
 from .core import aa
+from .core import compute_svg_scores
 
 # plotting functions
 from .plots import plot

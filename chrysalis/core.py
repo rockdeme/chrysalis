@@ -1,3 +1,5 @@
+from typing import Union
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scanpy as sc
@@ -7,6 +9,9 @@ from anndata import AnnData
 from pysal.lib import weights
 from pysal.explore import esda
 from sklearn.decomposition import PCA
+from .fast_morans import moran_sparse_matrix
+from scipy.sparse import csr_matrix
+import warnings
 
 
 def detect_svgs(adata: AnnData, min_spots: float=0.05, top_svg: int=1000, min_morans: float=0.20, neighbors: int=6,
@@ -46,6 +51,12 @@ def detect_svgs(adata: AnnData, min_spots: float=0.05, top_svg: int=1000, min_mo
     >>> ch.detect_svgs(adata)
 
     """
+
+    warnings.warn(
+        "'detect_svgs' is deprecated and will be removed in a future version. Use 'compute_svg_scores' instead.",
+        FutureWarning,
+        stacklevel=2
+    )
 
     assert 0 < min_spots < 1
 
@@ -90,6 +101,40 @@ def detect_svgs(adata: AnnData, min_spots: float=0.05, top_svg: int=1000, min_mo
     else:
         moran_df = moran_df[moran_df["Moran's I"] > min_morans]
         adata.var['spatially_variable'] = [True if x in moran_df.index else False for x in adata.var_names]
+
+
+def compute_svg_scores(adata: AnnData, neighbors: int=6, spatial_m: np.array=None, obsm_spatial_key: str='spatial',
+                       use_var: str='morans'):
+
+    sc.settings.verbosity = 0
+    if "log1p" not in adata.uns_keys():
+        raise KeyError("'log1p' key not found in adata.uns. Normalize and log-transform the data before continuing.")
+
+    # get cell positions
+    if spatial_m is None:
+        points = adata.obsm[obsm_spatial_key]
+    else:
+        assert len(spatial_m.shape) == 2, "Spatial matrix must be two-dimensional."
+        assert spatial_m.shape[0] == adata.shape[0], "Spatial matrix length must match the adata length."
+        points = spatial_m
+
+    # get KNN graph and transform it into a sparse matrix
+    w = weights.KNN.from_array(points, k=neighbors)
+    w.transform = 'R'
+    w_sparse = w.sparse
+    w_sparse = w_sparse.tocsr()
+
+    # todo: would be nice to leave it sparse in case it is
+    if type(adata.X) == csr_matrix:
+        x = adata.X.todense()
+    else:
+        x = adata.X
+
+    # numba-based fast implementation
+    morans = moran_sparse_matrix(x, w_sparse.data, w_sparse.indices, w_sparse.indptr)
+
+    moran_df = pd.DataFrame(data=morans, index=adata.var_names, columns=[use_var])
+    adata.var[use_var] = moran_df[use_var]
 
 
 def pca(adata: AnnData, n_pcs: int=50):
