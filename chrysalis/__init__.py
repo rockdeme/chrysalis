@@ -11,6 +11,7 @@ from .core import detect_svgs
 from .core import pca
 from .core import aa
 from .core import compute_svg_scores
+from .core import select_svgs
 
 # plotting functions
 from .plots import plot

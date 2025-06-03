@@ -52,6 +52,7 @@ def detect_svgs(adata: AnnData, min_spots: float=0.05, top_svg: int=1000, min_mo
 
     """
 
+    warnings.simplefilter("always", FutureWarning)
     warnings.warn(
         "'detect_svgs' is deprecated and will be removed in a future version. Use 'compute_svg_scores' instead.",
         FutureWarning,
@@ -104,7 +105,7 @@ def detect_svgs(adata: AnnData, min_spots: float=0.05, top_svg: int=1000, min_mo
 
 
 def compute_svg_scores(adata: AnnData, neighbors: int=6, spatial_m: np.array=None, obsm_spatial_key: str='spatial',
-                       use_var: str='morans'):
+                       svg_var: str='morans'):
 
     sc.settings.verbosity = 0
     if "log1p" not in adata.uns_keys():
@@ -115,7 +116,7 @@ def compute_svg_scores(adata: AnnData, neighbors: int=6, spatial_m: np.array=Non
         points = adata.obsm[obsm_spatial_key]
     else:
         assert len(spatial_m.shape) == 2, "Spatial matrix must be two-dimensional."
-        assert spatial_m.shape[0] == adata.shape[0], "Spatial matrix length must match the adata length."
+        assert spatial_m.shape[0] == adata.shape[0], "Spatial matrix length must match the AnnData length."
         points = spatial_m
 
     # get KNN graph and transform it into a sparse matrix
@@ -133,11 +134,41 @@ def compute_svg_scores(adata: AnnData, neighbors: int=6, spatial_m: np.array=Non
     # numba-based fast implementation
     morans = moran_sparse_matrix(x, w_sparse.data, w_sparse.indices, w_sparse.indptr)
 
-    moran_df = pd.DataFrame(data=morans, index=adata.var_names, columns=[use_var])
-    adata.var[use_var] = moran_df[use_var]
+    moran_df = pd.DataFrame(data=morans, index=adata.var_names, columns=[svg_var])
+    adata.var[svg_var] = moran_df[svg_var]
 
 
-def pca(adata: AnnData, n_pcs: int=50):
+def select_svgs(adata, top_svg: int=1000, min_morans: float=None, min_spots: float=None,
+                use_var: str='spatially_variable', svg_var: str='morans'):
+
+    morans_vec = adata.var[svg_var]
+    morans_vec = morans_vec.sort_values(ascending=False)
+
+    # logic to exclude sparsely expressed genes
+    if min_spots is not None:
+        assert 0 < min_spots < 1
+
+        if 'n_cells_by_counts' not in adata.var.columns:
+            _, var_df = sc.pp.calculate_qc_metrics(adata, inplace=False)
+            n_cells = var_df['n_cells_by_counts']
+        else:
+            n_cells = adata.var['n_cells_by_counts']
+
+        threshold = int(len(adata) * min_spots)
+        selected_genes = n_cells[n_cells > threshold].index
+        morans_vec = morans_vec[selected_genes]
+
+    # select thresholds
+    if min_morans is None:
+        adata.var[use_var] = [True if x in morans_vec[:top_svg].index else False for x in adata.var_names]
+    elif len(morans_vec[:top_svg]) < len(morans_vec[morans_vec > min_morans]):
+        adata.var[use_var] = [True if x in morans_vec[:top_svg].index else False for x in adata.var_names]
+    else:
+        morans_vec = morans_vec[morans_vec > min_morans]
+        adata.var[use_var] = [True if x in morans_vec.index else False for x in adata.var_names]
+
+
+def pca(adata: AnnData, n_pcs: int=50, use_var: str='spatially_variable'):
     """
     Perform PCA (Principal Component Analysis) to calculate PCA coordinates, loadings, and variance decomposition.
 
@@ -167,22 +198,25 @@ def pca(adata: AnnData, n_pcs: int=50):
 
     """
 
-    # todo: this only works with CSL matrix, need something to check if the matrix is dense
-    pcs = np.asarray(adata[:, adata.var['spatially_variable'] == True].X.todense())
+    if type(adata.X) == csr_matrix:
+        pcs = np.asarray(adata[:, adata.var[use_var] == True].X.todense())
+    else:
+        pcs = np.asarray(adata[:, adata.var[use_var] == True].X)
+
     pca = PCA(n_components=n_pcs, svd_solver='arpack', random_state=42)
     adata.obsm['chr_X_pca'] = pca.fit_transform(pcs)
 
     if 'chr_pca' not in adata.uns.keys():
         adata.uns['chr_pca'] = {'variance_ratio': pca.explained_variance_ratio_,
                                 'loadings': pca.components_,
-                                'features': list(adata[:, adata.var['spatially_variable'] == True].var_names)}
+                                'features': list(adata[:, adata.var[use_var] == True].var_names)}
     else:
         adata.uns['chr_pca']['variance_ratio'] = pca.explained_variance_ratio_
         adata.uns['chr_pca']['loadings'] = pca.components_
-        adata.uns['chr_pca']['features'] = list(adata[:, adata.var['spatially_variable'] == True].var_names)
+        adata.uns['chr_pca']['features'] = list(adata[:, adata.var[use_var] == True].var_names)
 
 
-def aa(adata: AnnData, n_archetypes: int=8, pca_key: str=None, n_pcs: int=None, max_iter: int=200):
+def aa(adata: AnnData, n_archetypes: int, pca_key: str=None, n_pcs: int=None, max_iter: int=200):
     """
     Run archetypal analysis on the low-dimensional embedding.
 

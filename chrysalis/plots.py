@@ -364,26 +364,44 @@ def plot_explained_variance(adata: AnnData):
     plt.tight_layout()
 
 
-def plot_svgs(adata: AnnData, figsize=(4, 4)):
+def plot_svgs(adata, figsize=(3.5, 3.5), svg_var: str='morans', svg_bool: str='spatially_variable',
+              text: bool=True):
     """
     Plot a rank-order chart displaying the Moran's I values.
 
+    :param svg_bool:
+    :param svg_var:
+    :param figsize:
+    :param text:
     :param adata: The AnnData data matrix of shape `n_obs` × `n_vars`. Rows correspond to cells and columns to genes.
 
     """
 
-    morans_df = adata.var["Moran's I"].sort_values(ascending=False)
+    morans_df = adata.var[svg_var].sort_values(ascending=False)
     morans_df = morans_df.dropna()
 
     fig, ax = plt.subplots(1, 1, figsize=figsize)
-    sns.lineplot(list(morans_df), linewidth=2, color='#8b33ff')
+    sns.lineplot(list(morans_df), linewidth=3, color='#8b33ff')
+
+    if svg_bool in adata.var.columns:
+        n_svg = len(adata.var[svg_bool][adata.var[svg_bool] == True])
+        ax.axvline(x=n_svg, color='#ff9a4e', linestyle='--', linewidth=2)
+        if text:
+            ax.text(n_svg + len(morans_df) * 0.05,
+                    morans_df.max() * 0.95,
+                    f'n = {n_svg}',
+                    color='black',
+                    fontsize=10,
+                    verticalalignment='top')
+
     ax.grid(axis='both', linestyle='-', linewidth='0.5', color='grey')
     ax.set_axisbelow(True)
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
     ax.set_ylabel("Moran's I")
-    ax.set_xlabel('Gene #')
-    ax.set_title(f'SVGs')
+    ax.set_xlabel('Gene Rank')
+    ax.set_title(f'SVG Rank Plot')
     plt.tight_layout()
+
 
 
 def plot_rss(adata, title=None):

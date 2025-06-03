@@ -19,7 +19,9 @@ def moran_sparse(x, w_data, w_indices, w_indptr):
             w_ij = w_data[j_idx]
             num += w_ij * xi * (x[j] - x_mean)
         denom += xi ** 2
+
     return (n / np.sum(w_data)) * (num / denom)
+
 
 @njit
 def moran_sparse_matrix(X, w_data, w_indices, w_indptr):
