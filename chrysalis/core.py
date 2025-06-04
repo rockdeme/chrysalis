@@ -12,6 +12,7 @@ from sklearn.decomposition import PCA
 from .fast_morans import moran_sparse_matrix
 from scipy.sparse import csr_matrix
 import warnings
+from .temp.aa import AA
 
 
 def detect_svgs(adata: AnnData, min_spots: float=0.05, top_svg: int=1000, min_morans: float=0.20, neighbors: int=6,
@@ -216,7 +217,8 @@ def pca(adata: AnnData, n_pcs: int=50, use_var: str='spatially_variable'):
         adata.uns['chr_pca']['features'] = list(adata[:, adata.var[use_var] == True].var_names)
 
 
-def aa(adata: AnnData, n_archetypes: int, pca_key: str=None, n_pcs: int=None, max_iter: int=200):
+def aa(adata: AnnData, n_archetypes: int, pca_key: str=None, n_pcs: int=None, max_iter: int=200,
+       backend='chrysalis', **model_kwargs):
     """
     Run archetypal analysis on the low-dimensional embedding.
 
@@ -262,26 +264,46 @@ def aa(adata: AnnData, n_archetypes: int, pca_key: str=None, n_pcs: int=None, ma
     else:
         pcs = n_pcs
 
-    model = arch.AA(n_archetypes=n_archetypes, n_init=3, max_iter=max_iter, tol=0.001, random_state=42)
+    if backend == 'chrysalis':
+        model = AA(n_archetypes=n_archetypes, n_init=3, max_iter=max_iter, tol=0.001, random_state=42,
+                   **model_kwargs)
+    elif backend == 'archetypes':
+        model = arch.AA(n_archetypes=n_archetypes, n_init=3, max_iter=max_iter, tol=0.001, random_state=42,
+                        **model_kwargs)
 
     if pca_key is None:
         model.fit(adata.obsm['chr_X_pca'][:, :pcs])
     else:
         model.fit(adata.obsm[pca_key][:, :pcs])
 
-    adata.obsm['chr_aa'] = model.alphas_
-
     # get the mean of the original feature matrix and add it to the multiplied archetypes with the PCA loading matrix
     # aa_loadings = np.mean(pcs, axis=0) + np.dot(model.archetypes_.T, pca.components_[:n_archetypes, :])
     aa_loadings = np.dot(model.archetypes_, adata.uns['chr_pca']['loadings'][:pcs, :])
 
-    if 'chr_aa' not in adata.uns.keys():
-        adata.uns['chr_aa'] = {'archetypes': model.archetypes_,
-                               'alphas': model.alphas_,
-                               'loadings': aa_loadings,
-                               'RSS': model.rss_}
-    else:
-        adata.uns['chr_aa']['archetypes'] = model.archetypes_
-        adata.uns['chr_aa']['alphas'] = model.alphas_
-        adata.uns['chr_aa']['loadings'] = aa_loadings
-        adata.uns['chr_aa']['RSS'] = model.rss_
+    if backend == 'chrysalis':
+        adata.obsm['chr_aa'] = model.A_
+
+        if 'chr_aa' not in adata.uns.keys():
+            adata.uns['chr_aa'] = {'archetypes': model.archetypes_,
+                                   'alphas': model.A_,
+                                   'loadings': aa_loadings,
+                                   'RSS': model.rss_}
+        else:
+            adata.uns['chr_aa']['archetypes'] = model.archetypes_
+            adata.uns['chr_aa']['alphas'] = model.A_
+            adata.uns['chr_aa']['loadings'] = aa_loadings
+            adata.uns['chr_aa']['RSS'] = model.rss_
+
+    elif backend == 'archetypes':
+        adata.obsm['chr_aa'] = model.alphas_
+
+        if 'chr_aa' not in adata.uns.keys():
+            adata.uns['chr_aa'] = {'archetypes': model.archetypes_,
+                                   'alphas': model.alphas_,
+                                   'loadings': aa_loadings,
+                                   'RSS': model.rss_}
+        else:
+            adata.uns['chr_aa']['archetypes'] = model.archetypes_
+            adata.uns['chr_aa']['alphas'] = model.alphas_
+            adata.uns['chr_aa']['loadings'] = aa_loadings
+            adata.uns['chr_aa']['RSS'] = model.rss_

@@ -93,4 +93,18 @@ plt.show()
 
 ch.pca(adata)
 
+ch.aa(adata, n_pcs=20, n_archetypes=8)
+ch.plot(adata, dim=8)
+plt.show()
 
+ch.aa(adata, n_pcs=20, n_archetypes=8, method='FW', verbose=True, max_iter=10)
+ch.plot(adata, dim=8)
+plt.show()
+
+ch.aa(adata, n_pcs=20, n_archetypes=8, method='nnls', verbose=True)
+ch.plot(adata, dim=8)
+plt.show()
+
+ch.aa(adata, n_pcs=20, n_archetypes=8, backend='archetypes')
+ch.plot(adata, dim=8)
+plt.show()
