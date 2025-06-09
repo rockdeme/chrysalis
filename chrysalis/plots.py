@@ -12,37 +12,30 @@ from matplotlib.patches import RegularPolygon
 from matplotlib.collections import PatchCollection
 from scipy.cluster.hierarchy import linkage, leaves_list
 from .utils import generate_random_colors, black_to_color, get_rgb_from_colormap, mip_colors, color_to_color, \
-    get_compartment_df, get_hexcodes
+    get_gene_weights_df, get_hexcodes
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.cluster.hierarchy import dendrogram
 
 
 def hex_collection(x, y, c, s, scale_factor, ax, rotation=30, marker='h', **kwargs):
     """
     Scatter plot alternative with proper scaling.
-
-    :param x: rows
-    :param y: columns
-    :param c: color
-    :param s: size
-    :param scale_factor: scale factor
-    :param ax: axis
-    :param rotation: marker rotation in radians
-    :param kwargs: PatchCollection kwargs
     """
-
     if scale_factor != 1.0:
         x = x * scale_factor
         y = y * scale_factor
     zipped = np.broadcast(x, y, s)
 
     if marker == 'h':
-        patches = [RegularPolygon((x, y), radius=s, numVertices=6, orientation=np.radians(rotation)) for x, y, s in zipped]
+        patches = [RegularPolygon((x, y), radius=s, numVertices=6, orientation=np.radians(rotation))
+                   for x, y, s in zipped]
     elif marker == 's':
-        patches = [RegularPolygon((x, y), radius=s, numVertices=4, orientation=np.radians(rotation)) for x, y, s in zipped]
+        patches = [RegularPolygon((x, y), radius=s, numVertices=4, orientation=np.radians(rotation))
+                   for x, y, s in zipped]
     else:
         raise Exception("No valid marker type was defined ('h', 's')")
     collection = PatchCollection(patches, edgecolor='none', **kwargs)
     collection.set_facecolor(c)
-
     ax.add_collection(collection)
 
 
@@ -337,7 +330,7 @@ def plot_compartments(adata: AnnData, ncols: int=2, size: int=3, sample_id: Unio
         axs[i].set_title(f'Compartment {i}', size=title_size)
 
 
-def plot_explained_variance(adata: AnnData):
+def plot_explained_variance(adata: AnnData, figsize=(3.5, 3.5), ax: plt.axis=None):
     """
     Plot the explained variance of the calculated PCs (Principal Components).
 
@@ -348,43 +341,64 @@ def plot_explained_variance(adata: AnnData):
     sns.set_style("ticks")
     pca_df = pd.DataFrame(data=adata.uns['chr_pca']['variance_ratio'], columns=['Explained variance'])
     pca_df = pca_df.cumsum()
+    created_fig = False
 
-    n_svg = adata.var['spatially_variable'].value_counts()[True]
+    if not ax:
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        created_fig = True
 
-    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-    sns.lineplot(pca_df, markers=True, legend=True, ax=ax, palette=['#8b33ff'])
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+    sns.lineplot(pca_df, markers=True, legend=False, ax=ax, palette=['#8b33ff'])
+    ax.tick_params(axis='x', rotation=45)
     ax.set_yticklabels(['{:,.0%}'.format(x) for x in ax.get_yticks()])
-    ax.set_ylabel('Explained variance')
-    ax.set_xlabel('PCs')
-    ax.set_title(f'SVGs: {n_svg}')
-    # ax.grid(axis='both')
     ax.grid(axis='both', linestyle='-', linewidth='0.5', color='grey')
     ax.set_axisbelow(True)
-    plt.tight_layout()
+    ax.set_ylabel('Explained variance')
+    ax.set_xlabel('PCs')
+    ax.set_title(f'Explained Variance Plot')
+    if created_fig is not False:
+        plt.tight_layout()
 
 
-def plot_svgs(adata, figsize=(3.5, 3.5), svg_var: str='morans', svg_bool: str='spatially_variable',
-              text: bool=True):
+def plot_svgs(*args, **kwargs):
+    warnings.warn(
+        "Function `plot_svgs` is deprecated and will be removed in a future version. "
+        "Use `plot_svg_ranks` instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return plot_svg_ranks(*args, **kwargs)
+
+
+def plot_svg_ranks(adata, figsize=(3.5, 3.5), svg_var: str='morans', svg_col: str='spatially_variable',
+              text: bool=True, ax: plt.axis=None):
+
     """
     Plot a rank-order chart displaying the Moran's I values.
 
-    :param svg_bool:
+    :param svg_col:
     :param svg_var:
     :param figsize:
     :param text:
     :param adata: The AnnData data matrix of shape `n_obs` × `n_vars`. Rows correspond to cells and columns to genes.
 
+    Parameters
+    ----------
+    ax
+
     """
 
     morans_df = adata.var[svg_var].sort_values(ascending=False)
     morans_df = morans_df.dropna()
+    created_fig = False
 
-    fig, ax = plt.subplots(1, 1, figsize=figsize)
-    sns.lineplot(list(morans_df), linewidth=3, color='#8b33ff')
+    if not ax:
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        created_fig = True
 
-    if svg_bool in adata.var.columns:
-        n_svg = len(adata.var[svg_bool][adata.var[svg_bool] == True])
+    sns.lineplot(list(morans_df), linewidth=3, color='#8b33ff', ax=ax)
+
+    if svg_col in adata.var.columns:
+        n_svg = len(adata.var[svg_col][adata.var[svg_col] == True])
         ax.axvline(x=n_svg, color='#ff9a4e', linestyle='--', linewidth=2)
         if text:
             ax.text(n_svg + len(morans_df) * 0.05,
@@ -396,12 +410,13 @@ def plot_svgs(adata, figsize=(3.5, 3.5), svg_var: str='morans', svg_bool: str='s
 
     ax.grid(axis='both', linestyle='-', linewidth='0.5', color='grey')
     ax.set_axisbelow(True)
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+    ax.tick_params(axis='x', rotation=45)
     ax.set_ylabel("Moran's I")
     ax.set_xlabel('Gene Rank')
     ax.set_title(f'SVG Rank Plot')
-    plt.tight_layout()
 
+    if created_fig is not False:
+        plt.tight_layout()
 
 
 def plot_rss(adata, title=None):
@@ -473,6 +488,96 @@ def plot_rss(adata, title=None):
     plt.tight_layout()
 
 
+def plot_gene_weight_heatmap(adata: AnnData, figsize: Tuple[int, int] = (5, 5), num_genes=5, hexcodes: List[str] = None,
+                             seed: int = None, scaling=False, reorder_comps=True, comps=None, flip=False,
+                             colorbar_shrink: float = 0.5, colorbar_aspect: int = 20, cbar_label: str = 'Weight',
+                             dendrogram_ratio=0.05, xlabel=None, ylabel=None, fontsize=10, **kwrgs):
+
+    # SVG weights for each compartment
+    df = pd.DataFrame(data=adata.uns['chr_aa']['loadings'], columns=adata.uns['chr_pca']['features'])
+    dim = df.shape[0]
+    hexcodes = get_hexcodes(hexcodes, dim, seed, len(adata))
+
+    if comps:
+        df = df.T[comps]
+        df = df.T
+        hexcodes = [hexcodes[x] for x in comps]
+
+    if scaling:
+        df = df.apply(lambda x: (x - x.mean()) / x.std(), axis=0)
+    if reorder_comps:
+        z = linkage(df, method='ward')
+        order = leaves_list(z)
+        df = df.iloc[order, :]
+        hexcodes = [hexcodes[i] for i in order]
+
+    # get top genes for each comp
+    genes_dict = {}
+    for idx, row in df.iterrows():
+        toplist = row.sort_values(ascending=False)
+        genes_dict[idx] = list(toplist.index)[:num_genes]
+    selected_genes = []
+    for v in genes_dict.values():
+        selected_genes.extend(v)
+
+    plot_df = df[selected_genes]
+
+    if flip:
+        plot_df = plot_df.T
+        d_orientation = 'left'
+        d_pad = 0.35
+    else:
+        d_orientation = 'top'
+        d_pad = 0.05
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # create the heatmap but disable the default colorbar
+    sc_img = sns.heatmap(plot_df.T, ax=ax, cmap=sns.diverging_palette(45, 340, l=55, center="dark", as_cmap=True),
+                         center=0, cbar=False, zorder=2, **kwrgs)
+    ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
+    # create a divider for axes to control the placement of dendrogram and colorbar
+    divider = make_axes_locatable(ax)
+
+    # dendrogram axis - append to the left of the heatmap
+    ax_dendro = divider.append_axes(d_orientation, size=f"{dendrogram_ratio * 100}%", pad=d_pad)
+
+    # plot the dendrogram on the left
+    dendro = dendrogram(z, orientation=d_orientation, ax=ax_dendro, no_labels=True, color_threshold=0,
+                        above_threshold_color='black')
+    if flip:
+        ax_dendro.invert_yaxis()  # Invert to match the heatmap
+
+    # remove ticks and spines from the dendrogram axis
+    ax_dendro.set_xticks([])
+    ax_dendro.set_yticks([])
+    ax_dendro.spines['top'].set_visible(False)
+    ax_dendro.spines['right'].set_visible(False)
+    ax_dendro.spines['left'].set_visible(False)
+    ax_dendro.spines['bottom'].set_visible(False)
+
+    # set tick label colors
+    if flip:
+        ticklabels = ax.get_yticklabels()
+    else:
+        ticklabels = ax.get_xticklabels()
+
+    for idx, t in enumerate(ticklabels):
+        t.set_bbox(dict(facecolor=hexcodes[idx], alpha=1, edgecolor='none', boxstyle='round'))
+
+    # create the colorbar using fig.colorbar with shrink and aspect
+    colorbar = fig.colorbar(sc_img.get_children()[0], ax=ax, shrink=colorbar_shrink, aspect=colorbar_aspect, pad=0.02)
+
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+
+    # set the colorbar label
+    if cbar_label:
+        colorbar.set_label(cbar_label)
+
+    plt.tight_layout()
+
+
 def plot_heatmap(adata: AnnData, figsize: Tuple[int, int]=(5, 7), reorder_comps: bool=False, hexcodes: List[str]=None,
                  seed: int=None, scaling=True, **kwrgs):
     """
@@ -519,8 +624,18 @@ def plot_heatmap(adata: AnnData, figsize: Tuple[int, int]=(5, 7), reorder_comps:
     plt.tight_layout()
 
 
-def plot_weights(adata: AnnData, hexcodes: List[str]=None, seed: int=None, compartments: List[int]=None, ncols: int=4,
-                 w: float=1.0, h: float=1.0):
+def plot_weights(*args, **kwargs):
+    warnings.warn(
+        "Function `plot_weights` is deprecated and will be removed in a future version. "
+        "Use `plot_gene_weights` instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return plot_gene_weights(*args, **kwargs)
+
+
+def plot_gene_weights(adata: AnnData, hexcodes: List[str]=None, top_genes: int=15, seed: int=None,
+                      compartments: List[int]=None, ncols: int=4,  w: float=1.0, h: float=1.0):
     """
     Plot 20 top genes for each tissue compartment.
 
@@ -534,24 +649,12 @@ def plot_weights(adata: AnnData, hexcodes: List[str]=None, seed: int=None, compa
     :param h: Subplot height multiplier.
 
     """
+    plt.rcParams['axes.grid'] = False  # Turn off global grid
 
-    expression_df = get_compartment_df(adata)
+    expression_df = get_gene_weights_df(adata)
     dim = expression_df.shape[1]
-    # define compartment colors
-    # default colormap with 8 colors
-    if hexcodes is None:
-        if dim > 8:
-            hexcodes = generate_random_colors(num_colors=dim, min_distance=1 / dim * 0.5, seed=seed,
-                                              saturation=0.65, lightness=0.60)
-        else:
-            hexcodes = ['#db5f57', '#dbc257', '#91db57', '#57db80', '#57d3db', '#5770db', '#a157db', '#db57b2']
-            if seed is None:
-                np.random.seed(len(adata))
-            else:
-                np.random.seed(seed)
-            np.random.shuffle(hexcodes)
-    else:
-        assert len(hexcodes) >= dim
+
+    hexcodes = get_hexcodes(hexcodes, dim, seed, len(adata))
 
     if type(compartments) == list:
         assert all(isinstance(item, int) for item in compartments)
@@ -563,15 +666,14 @@ def plot_weights(adata: AnnData, hexcodes: List[str]=None, seed: int=None, compa
     n_col = ncols
     n_row = math.ceil(n_comp / n_col)
 
-    fig, ax = plt.subplots(n_row, n_col, figsize=(w * 3 * n_col, h * 4 * n_row))
+    fig, ax = plt.subplots(n_row, n_col, figsize=(w * 2.0 * n_col, h * 3.0 * n_row))
     ax = ax.flatten()
     for a in ax:
         a.axis('off')
     for idx, c in enumerate(expression_df.columns):
         cnum = int(c.split('_')[-1])
-        sl = expression_df[[c]].sort_values(ascending=False, by=c)[:20]
+        sl = expression_df[[c]].sort_values(ascending=False, by=c)[:top_genes]
         ax[idx].axis('on')
-        # ax[idx].set_facecolor('#f2f2f2')
         ax[idx].spines['top'].set_visible(False)
         ax[idx].spines['right'].set_visible(False)
         ax[idx].grid(axis='x', linestyle='-', linewidth='0.5', color='grey')
@@ -580,7 +682,8 @@ def plot_weights(adata: AnnData, hexcodes: List[str]=None, seed: int=None, compa
         ax[idx].barh(list(sl.index)[::-1], list(sl[c].values)[::-1], color=hexcodes[cnum])
         ax[idx].scatter(y=list(sl.index)[::-1], x=list(sl[c].values)[::-1], color='black', s=15)
         ax[idx].set_xlabel('Weight')
-        ax[idx].set_title(f'Compartment {cnum}')
+        ax[idx].tick_params(axis='y', labelsize=9)
+        ax[idx].set_title(f'Compartment {cnum}', fontsize=10)
     plt.tight_layout()
 
 

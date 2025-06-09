@@ -1,5 +1,3 @@
-from typing import Union
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scanpy as sc
@@ -12,7 +10,7 @@ from sklearn.decomposition import PCA
 from .fast_morans import moran_sparse_matrix
 from scipy.sparse import csr_matrix
 import warnings
-from .temp.aa import AA
+from chrysalis.models.aa import AA
 
 
 def detect_svgs(adata: AnnData, min_spots: float=0.05, top_svg: int=1000, min_morans: float=0.20, neighbors: int=6,

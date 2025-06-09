@@ -8,6 +8,7 @@ data/
 # IDE
 /.idea
 .ipynb_checkpoints/
+.venv
 
 # temp
 functions.py

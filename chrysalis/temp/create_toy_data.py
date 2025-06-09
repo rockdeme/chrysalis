@@ -13,7 +13,6 @@ import pandas as pd
 #%%
 # download data
 adata = sc.datasets.visium_sge(sample_id='V1_Human_Lymph_Node')
-adata.write_h5ad('data/toy_data.h5ad')
 
 sc.pp.calculate_qc_metrics(adata, inplace=True)
 sc.pp.filter_cells(adata, min_counts=6000)
@@ -91,11 +90,25 @@ ch.select_svgs(adata, top_svg=1000)
 ch.plot_svgs(adata)
 plt.show()
 
+ch.plot_explained_variance(adata)
+plt.show()
+
+fig, ax = plt.subplots(1, 2, figsize=(7, 3.5))
+ch.plot_explained_variance(adata, ax=ax[0])
+ch.plot_svgs(adata, ax=ax[1])
+plt.tight_layout()
+plt.show()
+
 ch.pca(adata)
 
 ch.aa(adata, n_pcs=20, n_archetypes=8)
 ch.plot(adata, dim=8)
 plt.show()
+
+ch.plot_weights(adata)
+plt.show()
+
+
 
 ch.aa(adata, n_pcs=20, n_archetypes=8, method='FW', verbose=True, max_iter=10)
 ch.plot(adata, dim=8)

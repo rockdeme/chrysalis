@@ -10,6 +10,7 @@ import matplotlib.colors as mcolors
 from .core import detect_svgs
 from typing import List
 from anndata import AnnData
+import warnings
 
 
 def black_to_color(color):
@@ -136,7 +137,17 @@ def estimate_compartments(adata, n_pcs=20, range_archetypes=(3, 50), max_iter=10
         adata.uns['chr_aa']['RSSs'] = rss_dict
 
 
-def get_compartment_df(adata: AnnData, weights: bool=True):
+def get_compartment_df(*args, **kwargs):
+    warnings.warn(
+        "Function `get_compartment_df` is deprecated and will be removed in a future version. "
+        "Use `get_gene_weight_df` instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return get_gene_weights_df(*args, **kwargs)
+
+
+def get_gene_weights_df(adata: AnnData, weights: bool=True, svg_col: str='spatially_variable'):
     """
     Get spatially variable gene weights/expression values as a pandas DataFrame.
 
@@ -147,7 +158,7 @@ def get_compartment_df(adata: AnnData, weights: bool=True):
     """
 
     # SVG expression for each compartment
-    exp_array = np.asarray(adata[:, adata.var['spatially_variable'] == True].X.todense())
+    exp_array = np.asarray(adata[:, adata.var[svg_col] == True].X.todense())
     exp_array = np.mean(exp_array, axis=0)
     exp_aa = adata.uns['chr_aa']['loadings']
     if not weights:
@@ -155,6 +166,13 @@ def get_compartment_df(adata: AnnData, weights: bool=True):
 
     df = pd.DataFrame(data=exp_aa, columns=adata.uns['chr_pca']['features'],
                       index=[f'compartment_{x}' for x in (range(len(exp_aa)))]).T
+    return df
+
+
+def get_coefficients_df(adata: AnnData):
+    X = adata.obsm['chr_aa']
+    df = pd.DataFrame(data=X, index=adata.obs_names,
+                      columns=[f'compartment_{x}' for x in (range(X.shape[1]))])
     return df
 
 
